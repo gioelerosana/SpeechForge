@@ -97,7 +97,7 @@ export function Header({
           )}
         >
           <AudioLines className="w-4 h-4 text-primary" />
-          Transcription
+          Transcribe
         </button>
         <button
           onClick={() => {
@@ -112,7 +112,7 @@ export function Header({
           )}
         >
           <Languages className="w-4 h-4 text-tertiary" />
-          Translation
+          Translate
         </button>
       </div>
     </div>
