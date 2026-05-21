@@ -99,38 +99,48 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Custom modern scrollbars for web build */
-body:not(.is-tauri) {
+body.is-browser {
   scrollbar-width: thin;
   scrollbar-color: var(--md-sys-color-outline) transparent;
 }
 
-body:not(.is-tauri) ::-webkit-scrollbar {
+body.is-browser ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-body:not(.is-tauri) ::-webkit-scrollbar-track {
+body.is-browser ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-body:not(.is-tauri) ::-webkit-scrollbar-thumb {
+body.is-browser ::-webkit-scrollbar-thumb {
   background-color: var(--md-sys-color-outline);
   opacity: 0.4;
   border-radius: 999px;
 }
 
-body:not(.is-tauri) ::-webkit-scrollbar-thumb:hover {
+body.is-browser ::-webkit-scrollbar-thumb:hover {
   background-color: var(--md-sys-color-primary);
 }
 
-/* Hide scrollbars completely inside Tauri desktop windows */
-body.is-tauri * {
+/* Hide scrollbars completely inside native desktop & mobile app runtimes */
+body.is-native * {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
 }
 
-body.is-tauri *::-webkit-scrollbar {
+body.is-native *::-webkit-scrollbar {
   display: none !important;
+}
+
+/* Disable gray tap highlight on mobile WebViews */
+button, a, select, input, textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Scrollable containers in native apps */
+body.is-native .overflow-y-auto {
+  -webkit-overflow-scrolling: touch; /* Smooth inertia scroll for iOS/macOS WebViews */
 }
 
 /* Audio Visualizer pulses for recorders */

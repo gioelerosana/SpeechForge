@@ -15,12 +15,14 @@ import { TranslationCard } from "./components/TranslationCard";
 import { useAudioRecording } from "./hooks/useAudioRecording";
 import { useAudioProcessing } from "./hooks/useAudioProcessing";
 import pkg from "../package.json";
+import { isTauriRuntime, isCapacitorRuntime, isNativeRuntime } from "./utils/platform";
 
 function cn(...inputs: any[]) {
   return twMerge(clsx(inputs));
 }
 
 function InnerApp() {
+  const isNative = isNativeRuntime();
   const {
     apiKey,
     isApiKeyVerified,
@@ -79,14 +81,36 @@ function InnerApp() {
     },
   });
 
-  // Apply conditional class for Tauri scrollbars
+  // Apply platform body classes for scrollbar and UX styles
   useEffect(() => {
-    if (tauriEnv) {
+    const tauri = isTauriRuntime();
+    const capacitor = isCapacitorRuntime();
+    const native = isNativeRuntime();
+
+    if (tauri) {
       document.body.classList.add("is-tauri");
     } else {
       document.body.classList.remove("is-tauri");
     }
-  }, [tauriEnv]);
+
+    if (capacitor) {
+      document.body.classList.add("is-capacitor");
+    } else {
+      document.body.classList.remove("is-capacitor");
+    }
+
+    if (native) {
+      document.body.classList.add("is-native");
+      document.body.classList.remove("is-browser");
+    } else {
+      document.body.classList.add("is-browser");
+      document.body.classList.remove("is-native");
+    }
+
+    return () => {
+      document.body.classList.remove("is-tauri", "is-capacitor", "is-native", "is-browser");
+    };
+  }, []);
 
   // Clean copy timeout
   useEffect(() => {
@@ -135,14 +159,15 @@ function InnerApp() {
         block: "start",
       });
     });
-  }, [transcription]);
+  }, [transcription, setTranslationInitialText, setActiveTab]);
 
   const deepLKeyConfigured = deepLApiKey.trim().length > 0;
 
   return (
     <div
       className={cn(
-        "min-h-screen flex flex-col bg-surface text-on-surface transition-colors duration-200 relative overflow-x-hidden",
+        "flex flex-col bg-surface text-on-surface transition-colors duration-200 relative select-none",
+        isNative ? "h-screen h-[100dvh] overflow-hidden" : "min-h-screen overflow-x-hidden",
         tauriEnv && "pt-8",
       )}
     >
@@ -186,7 +211,12 @@ function InnerApp() {
       )}
 
       {/* Main content grid */}
-      <main className="relative flex-1 w-full max-w-4xl mx-auto px-6 pb-6 space-y-8">
+      <main
+        className={cn(
+          "relative flex-1 w-full max-w-4xl mx-auto px-6 pb-6 space-y-8",
+          isNative && "overflow-y-auto min-h-0"
+        )}
+      >
         {/* Error Banner */}
         {error && (
           <div className="bg-error-container text-on-error-container p-4 rounded-2xl border border-rose-300/40 flex items-center gap-2 shadow-sm animate-in slide-in-from-top-2">
@@ -257,21 +287,20 @@ function InnerApp() {
             />
           </div>
         )}
+        <footer className="w-full py-6 text-center text-sm text-on-surface-variant opacity-60">
+          <p>
+            Version {pkg.version} • © 2026{" "}
+            <a
+              href="https://jshep.xyz/profile/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline hover:text-primary transition-colors outline-none focus-visible:ring-1 focus-visible:ring-primary/40 rounded"
+            >
+              JoeShep
+            </a>
+          </p>
+        </footer>
       </main>
-
-      <footer className="w-full py-6 text-center text-sm text-on-surface-variant opacity-60">
-        <p>
-          Version {pkg.version} • © 2026{" "}
-          <a
-            href="https://jshep.xyz/profile/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline hover:text-primary transition-colors outline-none focus-visible:ring-1 focus-visible:ring-primary/40 rounded"
-          >
-            JoeShep
-          </a>
-        </p>
-      </footer>
 
       {/* Global modal settings panel */}
       <SettingsPanel
