@@ -111,7 +111,7 @@ bun run build:adb
 
 ### 5.3 Arch Linux Package (`PKGBUILD`)
 
-The project contains a [PKGBUILD](file:///home/joel/progetti/TranscribeAPP/PKGBUILD) configuration to create an Arch Linux native package:
+The project contains a [PKGBUILD](file:///home/joel/progetti/SpeechForge/PKGBUILD) configuration to create an Arch Linux native package:
 
 ```bash
 # Compile and install native Arch Linux package

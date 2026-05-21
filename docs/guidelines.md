@@ -63,10 +63,10 @@ To release a new version, the version identifier string **must** be updated atom
 
 | File Name | Field Path |
 | :--- | :--- |
-| **[package.json](file:///home/joel/progetti/TranscribeAPP/package.json)** | `"version"` |
-| **[tauri.conf.json](file:///home/joel/progetti/TranscribeAPP/src-tauri/tauri.conf.json)** | `"version"` |
-| **[Cargo.toml](file:///home/joel/progetti/TranscribeAPP/src-tauri/Cargo.toml)** | `version` under `[package]` |
-| **[PKGBUILD](file:///home/joel/progetti/TranscribeAPP/PKGBUILD)** | `pkgver` |
+| **[package.json](file:///home/joel/progetti/SpeechForge/package.json)** | `"version"` |
+| **[tauri.conf.json](file:///home/joel/progetti/SpeechForge/src-tauri/tauri.conf.json)** | `"version"` |
+| **[Cargo.toml](file:///home/joel/progetti/SpeechForge/src-tauri/Cargo.toml)** | `version` under `[package]` |
+| **[PKGBUILD](file:///home/joel/progetti/SpeechForge/PKGBUILD)** | `pkgver` |
 
 Verify synchronization after bumping the versions with the command:
 

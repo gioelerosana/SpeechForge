@@ -51,7 +51,7 @@ graph TD
 
 ### 2.1 Audio Processing Pipeline (`AudioProcessor.ts`)
 
-The React application uses the Web Audio API inside [AudioProcessor.ts](file:///home/joel/progetti/TranscribeAPP/src/services/audio/AudioProcessor.ts) to normalize and prepare files prior to sending them to Mistral AI. The processing pipeline runs as follows:
+The React application uses the Web Audio API inside [AudioProcessor.ts](file:///home/joel/progetti/SpeechForge/src/services/audio/AudioProcessor.ts) to normalize and prepare files prior to sending them to Mistral AI. The processing pipeline runs as follows:
 
 1. **Decoding:** The uploaded file's raw array buffer is decoded into an `AudioBuffer` via the browser's `AudioContext.decodeAudioData`.
 2. **Channel Downmixing (Mono):** If the input file has multiple channels, they are mixed into a single mono channel by averaging the sample values across all channels:
@@ -64,11 +64,11 @@ The React application uses the Web Audio API inside [AudioProcessor.ts](file:///
 
 ### 2.2 Dual Recording Paths
 
-Microphone recording has two parallel implementations configured in [App.tsx](file:///home/joel/progetti/TranscribeAPP/src/App.tsx) due to platform limitations:
+Microphone recording has two parallel implementations configured in [App.tsx](file:///home/joel/progetti/SpeechForge/src/App.tsx) due to platform limitations:
 
 * **Tauri Desktop Linux Path:** The Linux Webview (WebKit2GTK) does not support reliable WebRTC microphone access. When running under Tauri on Linux:
   - React invokes the Tauri backend command `start_native_recording`.
-  - The Rust backend [lib.rs](file:///home/joel/progetti/TranscribeAPP/src-tauri/src/lib.rs) captures microphone inputs via `cpal` inside a dedicated background thread, handling `f32`, `i16`, and `u16` inputs.
+  - The Rust backend [lib.rs](file:///home/joel/progetti/SpeechForge/src-tauri/src/lib.rs) captures microphone inputs via `cpal` inside a dedicated background thread, handling `f32`, `i16`, and `u16` inputs.
   - When React invokes `stop_native_recording`, Rust terminates the thread, compiles PCM WAV bytes using `hound`, and returns them directly to React as a byte array (`Vec<u8>`).
 * **Web, Windows Desktop, & Capacitor Path:** Uses standard browser `navigator.mediaDevices.getUserMedia()` and the `MediaRecorder` API to capture audio into `webm`, `ogg`, or `mp4` containers.
 
@@ -76,7 +76,7 @@ Microphone recording has two parallel implementations configured in [App.tsx](fi
 
 ## 3. Platform Integrations & CORS Workarounds
 
-The Mistral and DeepL APIs do not configure permissive CORS headers (`Access-Control-Allow-Origin`). Thus, direct browser-to-API requests fail in browser contexts. We implement three separate CORS-bypassing pathways inside [deepLClient.ts](file:///home/joel/progetti/TranscribeAPP/src/services/deepl/deepLClient.ts) and [MistralClient.ts](file:///home/joel/progetti/TranscribeAPP/src/services/mistral/MistralClient.ts):
+The Mistral and DeepL APIs do not configure permissive CORS headers (`Access-Control-Allow-Origin`). Thus, direct browser-to-API requests fail in browser contexts. We implement three separate CORS-bypassing pathways inside [deepLClient.ts](file:///home/joel/progetti/SpeechForge/src/services/deepl/deepLClient.ts) and [MistralClient.ts](file:///home/joel/progetti/SpeechForge/src/services/mistral/MistralClient.ts):
 
 | Runtime Platform | CORS Bypass Strategy | Technology |
 | :--- | :--- | :--- |
@@ -103,7 +103,7 @@ async fn deepl_request(
 
 ## 4. Mobile System Integration (`useSharedFile.ts`)
 
-For mobile (Android) setups, the application implements a system-level share handler hook [useSharedFile.ts](file:///home/joel/progetti/TranscribeAPP/src/hooks/useSharedFile.ts). 
+For mobile (Android) setups, the application implements a system-level share handler hook [useSharedFile.ts](file:///home/joel/progetti/SpeechForge/src/hooks/useSharedFile.ts). 
 
 * When another app shares an audio file with TranscribeJS, Capacitor triggers a native event.
 * The hook intercepts `sharedFileReceived` events, decodes the base64 content payload back into bytes, instantiates a React `File` object, and automatically starts the transcription pipeline.

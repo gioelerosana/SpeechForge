@@ -69,7 +69,7 @@ Since `AudioContext`, `Audio`, and `URL` APIs are not fully defined in the test 
 * Mock `AudioContext` by implementing a mock class with `decodeAudioData`.
 * Mock `URL.createObjectURL` and `URL.revokeObjectURL` to track memory leaks/cleanup.
 
-Refer to [AudioProcessor.test.ts](file:///home/joel/progetti/TranscribeAPP/src/services/audio/AudioProcessor.test.ts#L4-L67) for the exact implementation of these Audio mock adapters.
+Refer to [AudioProcessor.test.ts](file:///home/joel/progetti/SpeechForge/src/services/audio/AudioProcessor.test.ts#L4-L67) for the exact implementation of these Audio mock adapters.
 
 ### 3.3 Tauri Native IPC Mocking
 
