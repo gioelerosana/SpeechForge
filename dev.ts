@@ -11,9 +11,8 @@ await mkdir("./dist", { recursive: true });
 console.log("Starting Tailwind CLI...");
 const tailwindProc = spawn({
   cmd: [
-    "./node_modules/.bin/tailwindcss",
-    "-c",
-    "./tailwind.config.cjs",
+    "bunx",
+    "tailwindcss",
     "-i",
     "./src/index.css",
     "-o",

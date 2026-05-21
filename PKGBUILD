@@ -2,11 +2,11 @@
 pkgname=transcribejs
 pkgver=0.4.6
 pkgrel=1
-pkgdesc="TranscribeJS native Linux desktop app (Tauri)"
+pkgdesc="Voxscribe native Linux desktop app (Tauri)"
 arch=('x86_64')
 url="https://github.com/JoelShepard/TranscribeAPP"
 license=('MIT')
-depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'gst-plugins-base-libs' 'gst-plugins-good' 'gst-plugins-bad')
+depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'gst-plugins-base-libs' 'gst-plugins-good' 'gst-plugins-bad' 'alsa-lib')
 makedepends=('bun' 'rust' 'cargo')
 options=(!lto)
 source=()
@@ -31,7 +31,7 @@ package() {
     cat > "$pkgdir/usr/share/applications/$pkgname.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=TranscribeJS
+Name=Voxscribe
 Comment=Audio transcription app
 Exec=$pkgname
 Icon=$pkgname

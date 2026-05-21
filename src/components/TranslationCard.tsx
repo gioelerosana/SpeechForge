@@ -22,6 +22,7 @@ import {
   type DeepLTranslation,
   type DeepLUsage,
 } from "../services/deepl/deepLClient";
+import { useSettings } from "../context/SettingsContext";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -110,11 +111,7 @@ const QUOTA_WARN_RATIO = 0.9;
 // ---------------------------------------------------------------------------
 
 interface TranslationCardProps {
-  apiKey: string;
-  plan: DeepLPlan;
   initialText?: string;
-  defaultTargetLang?: string;
-  usage?: DeepLUsage | null;
   onTranslateComplete?: (translation: string) => void;
 }
 
@@ -123,13 +120,16 @@ interface TranslationCardProps {
 // ---------------------------------------------------------------------------
 
 export function TranslationCard({
-  apiKey,
-  plan,
   initialText = "",
-  defaultTargetLang = "EN-US",
-  usage,
   onTranslateComplete,
 }: TranslationCardProps) {
+  const {
+    deepLApiKey: apiKey,
+    deepLPlan: plan,
+    deepLDefaultTargetLang: defaultTargetLang,
+    deepLUsage: usage,
+  } = useSettings();
+
   const [sourceText, setSourceText] = useState(initialText);
   const [sourceLang, setSourceLang] = useState("");
   const [targetLang, setTargetLang] = useState(defaultTargetLang);

@@ -1,6 +1,21 @@
+import groovy.json.JsonSlurper
+
 apply plugin: 'com.android.application'
 
-def appVersionName = (project.findProperty("APP_VERSION_NAME") ?: System.getenv("APP_VERSION_NAME") ?: "0.2.0").toString()
+def getAppVersionName() {
+    try {
+        def packageFile = file("../../package.json")
+        if (packageFile.exists()) {
+            def json = new JsonSlurper().parseText(packageFile.text)
+            return json.version.toString()
+        }
+    } catch (Exception e) {
+        logger.warn("Failed to parse package.json for version, using default: ${e.message}")
+    }
+    return "0.2.0"
+}
+
+def appVersionName = (project.findProperty("APP_VERSION_NAME") ?: System.getenv("APP_VERSION_NAME") ?: getAppVersionName()).toString()
 def appVersionCode = ((project.findProperty("APP_VERSION_CODE") ?: System.getenv("APP_VERSION_CODE") ?: "1") as String).toInteger()
 
 def releaseStorePath = (project.findProperty("TRANSCRIBE_KEYSTORE_PATH") ?: System.getenv("ANDROID_KEYSTORE_PATH") ?: "release-key.jks").toString()

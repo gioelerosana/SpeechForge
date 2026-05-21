@@ -6,7 +6,7 @@ const DIST_DIR = "./dist";
 
 console.log(`Starting production server on http://localhost:${PORT}`);
 
-serve({
+const server = serve({
   port: PORT,
   async fetch(req) {
     const url = new URL(req.url);
@@ -88,3 +88,12 @@ serve({
     return response;
   },
 });
+
+const shutdown = () => {
+  console.log("Shutting down production server gracefully...");
+  server.stop();
+  process.exit(0);
+};
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

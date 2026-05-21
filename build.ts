@@ -1,7 +1,7 @@
 import { build } from "bun";
 import { cp, rm } from "node:fs/promises";
 
-console.log("Building TranscribeJS...");
+console.log("Building Voxscribe...");
 
 // Clean dist
 await rm("./dist", { recursive: true, force: true });
@@ -10,9 +10,8 @@ await rm("./dist", { recursive: true, force: true });
 console.log("Generating Tailwind CSS...");
 const tailwindProc = Bun.spawn({
   cmd: [
-    "./node_modules/.bin/tailwindcss",
-    "-c",
-    "./tailwind.config.cjs",
+    "bunx",
+    "tailwindcss",
     "-i",
     "./src/index.css",
     "-o",
