@@ -50,15 +50,15 @@ jobs:
           set -euo pipefail
           mkdir -p release-assets
 
-          cp "src-tauri/target/release/app" "release-assets/TranscribeJS-linux-v${VERSION_NAME}-x86_64"
-          chmod +x "release-assets/TranscribeJS-linux-v${VERSION_NAME}-x86_64"
+          cp "src-tauri/target/release/app" "release-assets/SpeechForge-linux-v${VERSION_NAME}-x86_64"
+          chmod +x "release-assets/SpeechForge-linux-v${VERSION_NAME}-x86_64"
 
-          sha256sum "release-assets/TranscribeJS-linux-v${VERSION_NAME}-x86_64" > "release-assets/TranscribeJS-linux-v${VERSION_NAME}-x86_64.sha256"
+          sha256sum "release-assets/SpeechForge-linux-v${VERSION_NAME}-x86_64" > "release-assets/SpeechForge-linux-v${VERSION_NAME}-x86_64.sha256"
 
       - name: Publish GitHub release assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           files: |
-            release-assets/TranscribeJS-linux-v${{ steps.version.outputs.version_name }}-x86_64
-            release-assets/TranscribeJS-linux-v${{ steps.version.outputs.version_name }}-x86_64.sha256
+            release-assets/SpeechForge-linux-v${{ steps.version.outputs.version_name }}-x86_64
+            release-assets/SpeechForge-linux-v${{ steps.version.outputs.version_name }}-x86_64.sha256
