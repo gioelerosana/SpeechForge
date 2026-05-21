@@ -50,7 +50,7 @@ export function Header({
         </div>
         <div className="flex items-center gap-1">
           <h1 className="text-xl font-extrabold tracking-tight text-on-surface truncate">
-            {activeTab === "transcribe" ? "SpeechForge" : "Translation"}
+            SpeechForge - Transcription/Translation
           </h1>
           <ChevronDown className={cn(
             "w-4 h-4 text-on-surface-variant opacity-50 transition-all",
