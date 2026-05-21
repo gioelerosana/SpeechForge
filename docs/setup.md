@@ -107,7 +107,7 @@ To run and debug directly on a connected device via Android Debug Bridge (ADB):
 ```bash
 bun run build:adb
 ```
-*Note: This command builds a debug package `com.transcribe.app.debug`, installs it, launches the app, prints console outputs, and automatically uninstalls the debug build when stopped (Ctrl+C).*
+*Note: This command builds a debug package `com.speechforge.app.debug`, installs it, launches the app, prints console outputs, and automatically uninstalls the debug build when stopped (Ctrl+C).*
 
 ### 5.3 Arch Linux Package (`PKGBUILD`)
 

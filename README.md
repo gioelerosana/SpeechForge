@@ -40,7 +40,7 @@ TranscribeJS is an audio transcription app powered by Mistral AI, built with Rea
 
 Signed release APK artifacts are produced by the GitHub Actions release workflow on `v*` tags.
 
-`bun run build:adb` uses the debug package id `com.transcribe.app.debug`, so it can run alongside the release app. It uninstalls the debug app when you close it or press `Ctrl+C`.
+`bun run build:adb` uses the debug package id `com.speechforge.app.debug`, so it can run alongside the release app. It uninstalls the debug app when you close it or press `Ctrl+C`.
 
 ## Docker Web App
 

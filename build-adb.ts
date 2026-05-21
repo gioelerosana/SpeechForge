@@ -4,8 +4,8 @@ import { join } from "node:path";
 
 const rootDir = process.cwd();
 const androidDir = join(rootDir, "android");
-const packageId = "com.transcribe.app.debug";
-const launchActivity = "com.transcribe.app.MainActivity";
+const packageId = "com.speechforge.app.debug";
+const launchActivity = "com.speechforge.app.MainActivity";
 const debugApkPath = join(androidDir, "app", "build", "outputs", "apk", "debug", "app-debug.apk");
 
 async function runCommand(cmd: string[], cwd: string): Promise<string> {

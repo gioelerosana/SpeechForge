@@ -1,4 +1,4 @@
-package com.transcribe.app;
+package com.speechforge.app;
 
 import android.content.Intent;
 import android.database.Cursor;
