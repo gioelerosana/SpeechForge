@@ -1,6 +1,6 @@
 # Maintainer: JoeShep
 pkgname=speechforge
-pkgver=0.6.1
+pkgver=0.6.2
 pkgrel=1
 pkgdesc="SpeechForge native Linux desktop app (Tauri)"
 arch=('x86_64')
