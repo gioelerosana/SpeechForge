@@ -481,7 +481,7 @@ pub fn run() {
                     .targets([
                         tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
                         tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
-                            file_name: Some("transcribejs".to_string()),
+                            file_name: Some("speechforge".to_string()),
                         }),
                     ])
                     .build(),

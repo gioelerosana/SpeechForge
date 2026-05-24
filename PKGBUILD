@@ -1,10 +1,10 @@
 # Maintainer: JoeShep
-pkgname=transcribejs
-pkgver=0.4.6
+pkgname=speechforge
+pkgver=0.6.0
 pkgrel=1
-pkgdesc="TranscribeJS native Linux desktop app (Tauri)"
+pkgdesc="SpeechForge native Linux desktop app (Tauri)"
 arch=('x86_64')
-url="https://github.com/JoelShepard/TranscribeAPP"
+url="https://github.com/JoelShepard/SpeechForge"
 license=('MIT')
 depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'gst-plugins-base-libs' 'gst-plugins-good' 'gst-plugins-bad')
 makedepends=('bun' 'rust' 'cargo')
@@ -31,8 +31,8 @@ package() {
     cat > "$pkgdir/usr/share/applications/$pkgname.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=TranscribeJS
-Comment=Audio transcription app
+Name=SpeechForge
+Comment=SpeechForge transcription and translation app
 Exec=$pkgname
 Icon=$pkgname
 Terminal=false

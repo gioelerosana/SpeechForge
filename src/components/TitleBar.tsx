@@ -51,7 +51,7 @@ export function TitleBar() {
       {/* Title Area */}
       <div className="flex items-center px-4 h-full flex-1 gap-2 pointer-events-none">
         <span className="text-sm font-medium text-[var(--md-sys-color-on-surface-variant)]">
-          TranscribeJS
+          SpeechForge
         </span>
       </div>
 

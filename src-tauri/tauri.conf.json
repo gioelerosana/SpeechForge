@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "TranscribeJS",
-  "version": "0.4.6",
-  "identifier": "com.joeshep.transcribejs",
+  "productName": "SpeechForge",
+  "version": "0.6.0",
+  "identifier": "com.joeshep.speechforge",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3000",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "TranscribeJS",
+        "title": "SpeechForge",
         "width": 1000,
         "height": 800,
         "resizable": true,

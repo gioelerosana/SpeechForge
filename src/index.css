@@ -77,16 +77,21 @@
 body {
   font-family: "Nunito Sans", "Segoe UI", sans-serif;
   overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-/* Hide scrollbar for a more native feel in Tauri */
+/* Hide scrollbars globally (Tauri and Mobile/Web) */
 * {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE and Edge */
 }
 
-*::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, and Opera */
+::-webkit-scrollbar, *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
 
 .audio-visualizer {

@@ -1,7 +1,7 @@
 import { build } from "bun";
 import { cp, rm } from "node:fs/promises";
 
-console.log("Building TranscribeJS...");
+console.log("Building SpeechForge...");
 
 // Clean dist
 await rm("./dist", { recursive: true, force: true });

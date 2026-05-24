@@ -10,7 +10,7 @@ interface SharedFileEvent {
 
 declare global {
   interface Window {
-    __TRANSCRIBE_PENDING_SHARED_FILE__?: SharedFileEvent;
+    __SPEECHFORGE_PENDING_SHARED_FILE__?: SharedFileEvent;
   }
 }
 
@@ -43,7 +43,7 @@ export function useSharedFile(
     console.log("[useSharedFile] Received shared file:", fileName, mimeType);
 
     try {
-      delete window.__TRANSCRIBE_PENDING_SHARED_FILE__;
+      delete window.__SPEECHFORGE_PENDING_SHARED_FILE__;
 
       const file = sharedFileEventToFile(detail);
 
@@ -70,7 +70,7 @@ export function useSharedFile(
 
     window.addEventListener("sharedFileReceived", handleSharedFile);
 
-    const pendingSharedFile = window.__TRANSCRIBE_PENDING_SHARED_FILE__;
+    const pendingSharedFile = window.__SPEECHFORGE_PENDING_SHARED_FILE__;
     if (pendingSharedFile) {
       void processSharedFile(pendingSharedFile);
     }

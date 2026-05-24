@@ -1,6 +1,6 @@
-# TranscribeJS
+# SpeechForge
 
-TranscribeJS is an audio transcription app powered by Mistral AI, built with React, TypeScript, and Bun.
+SpeechForge is an audio transcription and translation app powered by Mistral AI, built with React, TypeScript, and Bun.
 
 ## How To Use
 
@@ -40,15 +40,15 @@ TranscribeJS is an audio transcription app powered by Mistral AI, built with Rea
 
 Signed release APK artifacts are produced by the GitHub Actions release workflow on `v*` tags.
 
-`bun run build:adb` uses the debug package id `com.transcribe.app.debug`, so it can run alongside the release app. It uninstalls the debug app when you close it or press `Ctrl+C`.
+`bun run build:adb` uses the debug package id `com.speechforge.app.debug`, so it can run alongside the release app. It uninstalls the debug app when you close it or press `Ctrl+C`.
 
 ## Docker Web App
 
 Build and run the web app container:
 
 ```bash
-docker build -t transcribejs:web .
-docker run --rm -p 3000:3000 transcribejs:web
+docker build -t speechforge:web .
+docker run --rm -p 3000:3000 speechforge:web
 ```
 
 The app will be available at `http://localhost:3000`.

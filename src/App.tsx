@@ -620,6 +620,35 @@ export default function App() {
     });
   }, [transcription]);
 
+  const handleGoHome = useCallback(() => {
+    setActiveTab("transcribe");
+    setStatus("idle");
+    setTranscription("");
+    setError("");
+    setTranslationInitialText("");
+    setShowLogoMenu(false);
+
+    // Stop browser microphone stream if active
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (err) {
+        console.error("[App] Error stopping media recorder on navigation:", err);
+      }
+    }
+
+    // Stop native microphone recording if running in Tauri Linux
+    if (isTauriRuntime() && isLinuxPlatform()) {
+      void invoke("stop_native_recording").catch(() => {
+        // Ignore cleanup errors.
+      });
+    }
+  }, []);
+
   const deepLKeyConfigured = deepLApiKey.trim().length > 0;
 
   return (
@@ -645,78 +674,45 @@ export default function App() {
           {(() => {
             const logoContent = (
               <div className="relative">
-                <button
-                  onClick={() => setShowLogoMenu(!showLogoMenu)}
-                  className="flex items-center gap-3 min-w-0 hover:opacity-80 transition-opacity"
-                  aria-label="Toggle Menu"
-                  aria-expanded={showLogoMenu}
-                >
-                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-[var(--md-sys-color-on-primary)] bg-[var(--md-sys-color-primary)] shadow-[0_8px_18px_rgba(39,80,196,0.30)]">
-                    <AudioLines className="w-5 h-5" />
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <h1 className="text-xl font-extrabold tracking-tight text-[var(--md-sys-color-on-surface)] truncate">
-                      {activeTab === "transcribe" ? "TranscribeJS" : "TranslateJS"}
-                    </h1>
+                <div className="flex items-center gap-3">
+                  {/* Home Button (Logo & Brand Name) */}
+                  <button
+                    onClick={handleGoHome}
+                    className="flex items-center gap-3 min-w-0 group cursor-pointer border-none bg-transparent p-0 outline-none select-none focus-visible:ring-2 focus-visible:ring-[var(--md-sys-color-primary)]/50 focus-visible:ring-offset-2 rounded-2xl"
+                    aria-label="SpeechForge Home"
+                  >
+                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-[var(--md-sys-color-on-primary)] bg-[var(--md-sys-color-primary)] shadow-[0_8px_18px_rgba(39,80,196,0.30)] group-hover:scale-110 active:scale-95 transition-all duration-200">
+                      <AudioLines className="w-5 h-5" />
+                    </div>
+                    <span className="text-lg font-extrabold tracking-tight text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition-colors duration-200">
+                      SpeechForge
+                    </span>
+                  </button>
+
+                  {/* Dot Separator */}
+                  <span className="text-[var(--md-sys-color-on-surface-variant)]/40 font-normal select-none" aria-hidden="true">
+                    ·
+                  </span>
+
+                  {/* Mode Dropdown Trigger Button */}
+                  <button
+                    onClick={() => setShowLogoMenu(!showLogoMenu)}
+                    className="flex items-center gap-1.5 text-lg font-extrabold tracking-tight cursor-pointer border-none bg-transparent p-0 outline-none select-none group/toggle focus-visible:ring-2 focus-visible:ring-[var(--md-sys-color-primary)]/50 focus-visible:ring-offset-2 rounded-xl py-1 px-1.5 -mx-1"
+                    aria-label="Toggle Mode Menu"
+                    aria-expanded={showLogoMenu}
+                  >
+                    <span className={cn(
+                      "transition-colors duration-200",
+                      activeTab === "transcribe"
+                        ? "text-[var(--md-sys-color-primary)] group-hover/toggle:opacity-80"
+                        : "text-[var(--md-sys-color-tertiary)] group-hover/toggle:opacity-80"
+                    )}>
+                      {activeTab === "transcribe" ? "Transcribe" : "Translate"}
+                    </span>
                     <ChevronDown className={cn(
-                      "w-4 h-4 text-[var(--md-sys-color-on-surface-variant)] opacity-50 transition-all",
+                      "w-4 h-4 text-[var(--md-sys-color-on-surface-variant)] opacity-50 transition-all duration-200 group-hover/toggle:opacity-80",
                       showLogoMenu && "rotate-180 opacity-100"
                     )} />
-                  </div>
-                </button>
-
-                {/* Dropdown Menu Overlay for mobile click-away */}
-                {showLogoMenu && (
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setShowLogoMenu(false)}
-                  />
-                )}
-
-                {/* Dropdown Menu */}
-                <div className={cn(
-                  "absolute top-full left-0 mt-2 w-48 rounded-2xl border border-[color:var(--md-sys-color-outline)]/20 bg-[var(--md-sys-color-surface-container-high)] shadow-xl transition-all z-50 overflow-hidden",
-                  showLogoMenu 
-                    ? "opacity-100 translate-y-0 pointer-events-auto" 
-                    : "opacity-0 translate-y-2 pointer-events-none"
-                )}>
-                  <button
-                    onClick={() => {
-                      setActiveTab("transcribe");
-                      setShowLogoMenu(false);
-                      if (status === "done") {
-                        // Keep transcription if we are just switching tabs
-                      } else {
-                        setStatus("idle");
-                        setTranscription("");
-                        setError("");
-                        setTranslationInitialText("");
-                      }
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors hover:bg-[var(--md-sys-color-surface-container-highest)]",
-                      activeTab === "transcribe"
-                        ? "text-[var(--md-sys-color-primary)] bg-[var(--md-sys-color-primary-container)]/10"
-                        : "text-[var(--md-sys-color-on-surface)]",
-                    )}
-                  >
-                    <AudioLines className="w-4 h-4" />
-                    Transcription
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveTab("translate");
-                      setShowLogoMenu(false);
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors hover:bg-[var(--md-sys-color-surface-container-highest)]",
-                      activeTab === "translate"
-                        ? "text-[var(--md-sys-color-tertiary)] bg-[var(--md-sys-color-tertiary-container)]/10"
-                        : "text-[var(--md-sys-color-on-surface)]",
-                    )}
-                  >
-                    <Languages className="w-4 h-4" />
-                    Translation
                   </button>
                 </div>
               </div>
@@ -761,14 +757,114 @@ export default function App() {
             return (
               <div
                 className={cn(
-                  "flex gap-3",
+                  "flex flex-col gap-4 relative",
                   pillClass,
                   paddingClass,
-                  "items-center justify-between",
+                  "transition-all duration-300",
                 )}
               >
-                {logoContent}
-                {actionsContent}
+                {/* Header Row */}
+                <div className="flex items-center justify-between w-full gap-3 relative z-40">
+                  {logoContent}
+                  {actionsContent}
+                </div>
+
+                {/* Dropdown Options (renders inline, expanding the card) */}
+                {showLogoMenu && (
+                  <div className="w-full pt-1 relative z-40 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="px-1 pb-1.5 text-[10px] font-bold text-[var(--md-sys-color-on-surface-variant)] opacity-50 uppercase tracking-wider">
+                      Modalità
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {/* Transcribe Button */}
+                      <button
+                        onClick={handleGoHome}
+                        className={cn(
+                          "w-full flex items-center justify-between p-2.5 rounded-2xl transition-all duration-150 hover:bg-[var(--md-sys-color-surface-container-highest)] cursor-pointer text-left",
+                          activeTab === "transcribe"
+                            ? "bg-[var(--md-sys-color-primary-container)]/10"
+                            : "",
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-9 h-9 rounded-full flex items-center justify-center transition-colors",
+                            activeTab === "transcribe"
+                              ? "bg-[var(--md-sys-color-primary)]/10 text-[var(--md-sys-color-primary)]"
+                              : "bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)]"
+                          )}>
+                            <AudioLines className="w-5 h-5" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className={cn(
+                              "text-sm font-bold",
+                              activeTab === "transcribe" ? "text-[var(--md-sys-color-primary)]" : "text-[var(--md-sys-color-on-surface)]"
+                            )}>
+                              Transcribe
+                            </span>
+                            <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] opacity-60 leading-none mt-0.5">
+                              Audio &rarr; testo
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {activeTab === "transcribe" && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--md-sys-color-primary)] mr-1" />
+                          )}
+                        </div>
+                      </button>
+
+                      {/* Translate Button */}
+                      <button
+                        onClick={() => {
+                          setActiveTab("translate");
+                          setShowLogoMenu(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between p-2.5 mt-1 rounded-2xl transition-all duration-150 hover:bg-[var(--md-sys-color-surface-container-highest)] cursor-pointer text-left",
+                          activeTab === "translate"
+                            ? "bg-[var(--md-sys-color-tertiary-container)]/10"
+                            : "",
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-9 h-9 rounded-full flex items-center justify-center transition-colors",
+                            activeTab === "translate"
+                              ? "bg-[var(--md-sys-color-tertiary)]/10 text-[var(--md-sys-color-tertiary)]"
+                              : "bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)]"
+                          )}>
+                            <Languages className="w-5 h-5" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className={cn(
+                              "text-sm font-bold",
+                              activeTab === "translate" ? "text-[var(--md-sys-color-tertiary)]" : "text-[var(--md-sys-color-on-surface)]"
+                            )}>
+                              Translate
+                            </span>
+                            <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] opacity-60 leading-none mt-0.5">
+                              Testo &rarr; lingua
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {activeTab === "translate" && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--md-sys-color-tertiary)] mr-1" />
+                          )}
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Click-away Overlay */}
+                {showLogoMenu && (
+                  <div 
+                    className="fixed inset-0 z-30 cursor-default" 
+                    onClick={() => setShowLogoMenu(false)}
+                  />
+                )}
               </div>
             );
           })()}

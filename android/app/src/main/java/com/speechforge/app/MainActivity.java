@@ -1,4 +1,4 @@
-package com.transcribe.app;
+package com.speechforge.app;
 
 import android.content.Intent;
 import android.database.Cursor;
@@ -17,7 +17,7 @@ public class MainActivity extends BridgeActivity {
 
     private static final String TAG = "MainActivity";
     private static final String EVENT_NAME = "sharedFileReceived";
-    private static final String PENDING_SHARED_FILE_KEY = "__TRANSCRIBE_PENDING_SHARED_FILE__";
+    private static final String PENDING_SHARED_FILE_KEY = "__SPEECHFORGE_PENDING_SHARED_FILE__";
     private String pendingSharedFileScript;
 
     @Override
@@ -124,7 +124,7 @@ public class MainActivity extends BridgeActivity {
                     String displayName = cursor.getString(displayNameColumnIndex);
                     if (displayName != null && !displayName.isBlank()) {
                         return displayName;
-                    }
+                      }
                 }
             }
         } catch (Exception e) {
