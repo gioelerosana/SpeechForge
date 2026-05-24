@@ -189,6 +189,35 @@ export default function App() {
     setDeepLDefaultTargetLang(storedDeepLTarget);
   }, []);
 
+  const handleGoHome = useCallback(() => {
+    setActiveTab("transcribe");
+    setStatus("idle");
+    setTranscription("");
+    setError("");
+    setTranslationInitialText("");
+    setShowLogoMenu(false);
+
+    // Stop browser microphone stream if active
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (err) {
+        console.error("[App] Error stopping media recorder on navigation:", err);
+      }
+    }
+
+    // Stop native microphone recording if running in Tauri Linux
+    if (isTauriRuntime() && isLinuxPlatform()) {
+      void invoke("stop_native_recording").catch(() => {
+        // Ignore cleanup errors.
+      });
+    }
+  }, []);
+
   // ── Capacitor Mobile Native Optimizations ─────────────────────────────────
   useEffect(() => {
     if (!isCapacitorRuntime()) {
@@ -668,35 +697,6 @@ export default function App() {
       });
     });
   }, [transcription]);
-
-  const handleGoHome = useCallback(() => {
-    setActiveTab("transcribe");
-    setStatus("idle");
-    setTranscription("");
-    setError("");
-    setTranslationInitialText("");
-    setShowLogoMenu(false);
-
-    // Stop browser microphone stream if active
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-      mediaStreamRef.current = null;
-    }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch (err) {
-        console.error("[App] Error stopping media recorder on navigation:", err);
-      }
-    }
-
-    // Stop native microphone recording if running in Tauri Linux
-    if (isTauriRuntime() && isLinuxPlatform()) {
-      void invoke("stop_native_recording").catch(() => {
-        // Ignore cleanup errors.
-      });
-    }
-  }, []);
 
   const deepLKeyConfigured = deepLApiKey.trim().length > 0;
 
