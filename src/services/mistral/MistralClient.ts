@@ -1,6 +1,17 @@
 import { CapacitorHttp } from "@capacitor/core";
 import { isCapacitorRuntime } from "../../utils/platform";
 
+export interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
+export interface ChatOptions {
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+}
+
 export class MistralClient {
   private apiKey: string;
   private baseUrl = "https://api.mistral.ai/v1";
@@ -110,5 +121,46 @@ export class MistralClient {
     const result = await response.json();
     console.log("[MistralClient] Transcription successful, result:", result);
     return result.text;
+  }
+
+  async chat(messages: ChatMessage[], options: ChatOptions = {}): Promise<string> {
+    const { model = "mistral-small-latest", temperature = 0.7, maxTokens = 1024 } = options;
+
+    console.log("[MistralClient] Starting chat with model:", model);
+
+    const response = await this.request(`${this.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+      }),
+    });
+
+    console.log("[MistralClient] Chat response status:", response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[MistralClient] Chat error response:", errorText);
+      let errorMessage = `HTTP ${response.status}: ${errorText}`;
+      try {
+        const json = JSON.parse(errorText);
+        if (json.error && json.error.message) {
+          errorMessage = json.error.message;
+        }
+      } catch {
+        /* ignore */
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    console.log("[MistralClient] Chat successful, result:", result);
+    return result.choices[0].message.content;
   }
 }

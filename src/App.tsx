@@ -17,6 +17,7 @@ import {
   Eye,
   EyeOff,
   ChevronDown,
+  MessageSquare,
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -31,6 +32,7 @@ import {
 import { useTheme } from "./context/ThemeContext";
 import { TitleBar } from "./components/TitleBar";
 import { TranslationCard } from "./components/TranslationCard";
+import { ChatSection } from "./components/ChatSection";
 import { isTauriRuntime, isCapacitorRuntime } from "./utils/platform";
 import { App as CapApp } from "@capacitor/app";
 import {
@@ -40,6 +42,8 @@ import {
 } from "./constants/messages";
 import {
   type Status,
+  type ActiveTab,
+  type ChatMessage,
 } from "./types";
 import {
   AUDIO_FILE_INPUT_ACCEPT,
@@ -130,10 +134,15 @@ export default function App() {
   const [deepLTestError, setDeepLTestError] = useState("");
   const [showDeepLKey, setShowDeepLKey] = useState(false);
   const [showMistralKey, setShowMistralKey] = useState(false);
-  const [activeTab, setActiveTab] = useState<"transcribe" | "translate">("transcribe");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("transcribe");
   const [showLogoMenu, setShowLogoMenu] = useState(false);
   // Text to pre-fill in TranslationCard (set when user clicks "Translate result")
   const [translationInitialText, setTranslationInitialText] = useState("");
+  
+  // ── Chat state ────────────────────────────────────────────────────────────
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatStatus, setChatStatus] = useState<"idle" | "thinking" | "error">("idle");
+  const [chatModel, setChatModel] = useState("mistral-tiny-latest");
 
   // ── UI state ─────────────────────────────────────────────────────────────
   const [showSettings, setShowSettings] = useState(false);
@@ -195,6 +204,8 @@ export default function App() {
     setTranscription("");
     setError("");
     setTranslationInitialText("");
+    setChatMessages([]);
+    setChatStatus("idle");
     setShowLogoMenu(false);
 
     // Stop browser microphone stream if active
@@ -250,8 +261,8 @@ export default function App() {
       else if (showLogoMenu) {
         setShowLogoMenu(false);
       }
-      // If we are in the translation tab or transcription is not idle, go back to home
-      else if (activeTab === "translate" || status !== "idle" || transcription !== "") {
+      // If we are in the translation/chart tab or transcription is not idle, go back to home
+      else if (activeTab === "translate" || activeTab === "chat" || status !== "idle" || transcription !== "") {
         handleGoHome();
       }
       // Otherwise, exit the app
@@ -698,6 +709,17 @@ export default function App() {
     });
   }, [transcription]);
 
+  // ── "Chat about this" CTA ───────────────────────────────────────────────
+  const handleChatAboutThis = useCallback(() => {
+    // Set context as system message
+    setChatMessages([{
+      role: "system",
+      content: `Contesto: il seguente è un transcript audio. Rispondi alle domande dell'utente basandoti su questo:\n\n${transcription}`
+    }]);
+    setChatStatus("idle");
+    setActiveTab("chat");
+  }, [transcription]);
+
   const deepLKeyConfigured = deepLApiKey.trim().length > 0;
 
   return (
@@ -759,9 +781,11 @@ export default function App() {
                         "transition-colors duration-200",
                         activeTab === "transcribe"
                           ? "text-[var(--md-sys-color-primary)] group-hover/toggle:opacity-80"
-                          : "text-[var(--md-sys-color-tertiary)] group-hover/toggle:opacity-80"
+                          : activeTab === "chat"
+                            ? "text-[var(--md-sys-color-secondary)] group-hover/toggle:opacity-80"
+                            : "text-[var(--md-sys-color-tertiary)] group-hover/toggle:opacity-80"
                       )}>
-                        {activeTab === "transcribe" ? "Transcribe" : "Translate"}
+                        {activeTab === "transcribe" ? "Transcribe" : activeTab === "chat" ? "Chat" : "Translate"}
                       </span>
                       <ChevronDown className={cn(
                         "w-3.5 h-3.5 sm:w-4 h-4 text-[var(--md-sys-color-on-surface-variant)] opacity-50 transition-all duration-200 group-hover/toggle:opacity-80",
@@ -906,6 +930,47 @@ export default function App() {
                         <div className="flex items-center gap-3">
                           {activeTab === "translate" && (
                             <span className="w-1.5 h-1.5 rounded-full bg-[var(--md-sys-color-tertiary)] mr-1" />
+                          )}
+                        </div>
+                      </button>
+
+                      {/* Chat Button */}
+                      <button
+                        onClick={() => {
+                          setActiveTab("chat");
+                          setShowLogoMenu(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between p-2.5 mt-1 rounded-2xl transition-all duration-150 hover:bg-[var(--md-sys-color-surface-container-highest)] cursor-pointer text-left",
+                          activeTab === "chat"
+                            ? "bg-[var(--md-sys-color-secondary-container)]/10"
+                            : "",
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-9 h-9 rounded-full flex items-center justify-center transition-colors",
+                            activeTab === "chat"
+                              ? "bg-[var(--md-sys-color-secondary)]/10 text-[var(--md-sys-color-secondary)]"
+                              : "bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)]"
+                          )}>
+                            <MessageSquare className="w-5 h-5" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className={cn(
+                              "text-sm font-bold",
+                              activeTab === "chat" ? "text-[var(--md-sys-color-secondary)]" : "text-[var(--md-sys-color-on-surface)]"
+                            )}>
+                              Chat
+                            </span>
+                            <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] opacity-60 leading-none mt-0.5">
+                              Chiedi a Mistral
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {activeTab === "chat" && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--md-sys-color-secondary)] mr-1" />
                           )}
                         </div>
                       </button>
@@ -1367,6 +1432,27 @@ export default function App() {
                     <Languages className="w-4 h-4" />
                     Translate result
                   </button>
+
+                  {/* 7.6 — Chat about this CTA */}
+                  <button
+                    onClick={() => {
+                      handleChatAboutThis();
+                    }}
+                    className={cn(
+                      "flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-sm transition-all",
+                      apiKey
+                        ? "bg-[var(--md-sys-color-secondary-container)] text-[var(--md-sys-color-on-secondary-container)] hover:opacity-90"
+                        : "bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] hover:opacity-80",
+                    )}
+                    title={
+                      apiKey
+                        ? "Chat with Mistral about this transcript"
+                        : "Add a Mistral API key in Settings to chat"
+                    }
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Chat about this
+                  </button>
                 </div>
               </div>
             )}
@@ -1382,6 +1468,16 @@ export default function App() {
               initialText={translationInitialText}
               defaultTargetLang={deepLDefaultTargetLang}
               usage={deepLUsage}
+            />
+          </div>
+        )}
+
+        {/* Chat Tab content */}
+        {activeTab === "chat" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <ChatSection
+              apiKey={apiKey}
+              initialContext={transcription}
             />
           </div>
         )}
