@@ -18,7 +18,7 @@ import { isCapacitorRuntime } from "./utils/platform";
 import pkg from "../package.json";
 
 export default function App() {
-  const { theme, toggleTheme } = useTheme();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<ActiveTab>("transcribe");
   const [showLogoMenu, setShowLogoMenu] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -151,7 +151,7 @@ export default function App() {
       <TitleBar />
 
       <AppHeader
-        theme={theme}
+        theme={resolvedTheme}
         toggleTheme={toggleTheme}
         tauriEnv={recorder.tauriEnv}
         activeTab={activeTab}

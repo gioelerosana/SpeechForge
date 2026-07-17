@@ -33,36 +33,37 @@ must pass before each squash-merge to `main` (local squashes; push only after us
 - [x] Verify: `bun test && bun run build` green; behavior identical (upload, record,
   settings save, translate pre-fill, chat context, Capacitor back button)
 
-### M3 — Design tokens refresh (Material You evolution)
+### M3 — Design foundations
 
-- [ ] New tonal palette from a teal/petrol seed (light + dark), replacing current blue;
-  verify WCAG AA contrast for all on-color pairs
-- [ ] Self-host fonts in `public/fonts` (Tauri CSP blocks Google Fonts: `font-src`/`style-src`
-  are not whitelisted) — variable font for UI + display; drop the `@import url(...)` in `index.css`
-- [ ] Add elevation (tinted shadows), shape (radii scale), and motion (durations/easings)
-  tokens to `index.css`
-- [ ] Verify: `bun run build` green; visual smoke on web + Tauri
+- [x] Replace the blue scheme with a WCAG-tested petrol/teal Material 3 palette
+- [x] Self-host Manrope Variable and remove the remote Google Fonts import
+- [x] Add semantic elevation, shape, state, typography, and motion tokens with reduced-motion support
+- [x] Add typed English/Italian localization and system/light/dark theme contexts
+- [x] Add shared UI primitives and a Bun + Happy DOM component-test harness
+- [x] Verify: `bun test`, lint, strict TypeScript, and `bun run build` green
 
-### M4 — Navigation & layout restructure
+### M4 — Navigation, onboarding & settings
 
 - [ ] Replace header mode dropdown with always-visible M3 segmented control
   (Transcribe / Translate / Chat) in the header on desktop
 - [ ] Add M3 bottom navigation bar on mobile (safe-area inset aware)
-- [ ] Convert settings inline panel into an M3 dialog; preserve Esc, Ctrl+Enter save,
-  and Capacitor back-button behaviors
-- [ ] Consistent page container/spacing per tab; keep `handleGoHome` reset semantics
+- [ ] Add guided, skippable provider onboarding and contextual provider gates
+- [ ] Convert settings into an accessible M3 dialog with atomic multi-provider validation
+- [ ] Preserve tab sessions; confirm destructive Home resets; refine Capacitor back behavior
+- [ ] Use a consistent responsive page container and safe-area spacing
 - [ ] Verify: `bun test && bun run build` green; manual flow smoke (all tabs, back button)
 
-### M5 — Screen restyle pass
+### M5 — Workflow renovation
 
-- [ ] Create shared UI primitives (`Button`, `IconButton`, `Card`, `TextField`) using new tokens
-- [ ] Restyle transcribe flow: upload/record cards, recording state (+ visualizer retint),
-  processing state, result card (copy/save/translate/chat CTAs)
-- [ ] Restyle `TranslationCard`, `ChatSection`, `TitleBar`, error banner, footer
+- [ ] Renovate transcribe flow: provider gate, upload/record, elapsed timer, processing, result actions
+- [ ] Renovate translation and chat while preserving in-session work and transcript context
+- [ ] Restyle `TitleBar`, error alert, empty states, provider gates, and footer
+- [ ] Guard async workflows against stale updates after reset
 - [ ] Verify: `bun test && bun run build` green; light/dark visual QA
 
 ### M6 — Final QA & release proposal
 
 - [ ] Full validation: `bun test && bun run build`; Tauri/Android build smoke
+- [ ] Add `ci-tests.yml` for tests, lint, strict TypeScript, and web build
 - [ ] Update `AGENTS.md`/`README.md` if structure or conventions changed
 - [ ] Propose release v0.7.0 (4-file version sync per AGENTS.md §6.1) — pending user approval

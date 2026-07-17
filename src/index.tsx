@@ -2,6 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ThemeProvider } from "./context/ThemeContext";
+import { LocaleProvider } from "./context/LocaleContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const rootElement = document.getElementById("root");
@@ -12,7 +13,9 @@ root.render(
   <React.StrictMode>
     <ErrorBoundary>
       <ThemeProvider>
-        <App />
+        <LocaleProvider>
+          <App />
+        </LocaleProvider>
       </ThemeProvider>
     </ErrorBoundary>
   </React.StrictMode>,
