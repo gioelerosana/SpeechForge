@@ -12,14 +12,14 @@ must pass before each squash-merge to `main` (local squashes; push only after us
 
 ### M1 — Dependency update (minor/patch)
 
-- [ ] Bump `react`/`react-dom` 19.2.4 → 19.2.7, `@types/react` → 19.2.17
-- [ ] Bump `tailwindcss` + `@tailwindcss/cli` 4.1.18 → 4.3.3 and verify `build.ts`/`dev.ts`
+- [x] Bump `react`/`react-dom` 19.2.4 → 19.2.7, `@types/react` → 19.2.17
+- [x] Bump `tailwindcss` + `@tailwindcss/cli` 4.1.18 → 4.3.3 and verify `build.ts`/`dev.ts`
   still resolve `node_modules/.bin/tailwindcss` (AGENTS.md §6.2)
-- [ ] Bump `@capacitor/*` → 8.4.2 (`app` → 8.1.1), `@tauri-apps/api` → 2.11.1,
+- [x] Bump `@capacitor/*` → 8.4.2 (`app` → 8.1.1), `@tauri-apps/api` → 2.11.1,
   `@tauri-apps/cli` → 2.11.4
-- [ ] Bump `tailwind-merge` → 3.6.0, `typescript-eslint` → 8.64.0,
+- [x] Bump `tailwind-merge` → 3.6.0, `typescript-eslint` → 8.64.0,
   `eslint-plugin-react-hooks` → 7.1.1
-- [ ] Verify: `bun test && bun run build` green; smoke `bun run dev`
+- [x] Verify: `bun test && bun run build` green; smoke `bun run dev`
 
 ### M2 — App decomposition (refactor, zero visual changes)
 
