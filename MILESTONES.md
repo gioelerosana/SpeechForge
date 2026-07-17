@@ -23,14 +23,14 @@ must pass before each squash-merge to `main` (local squashes; push only after us
 
 ### M2 — App decomposition (refactor, zero visual changes)
 
-- [ ] Extract shared `cn()` into `src/utils/cn.ts` (currently duplicated in
+- [x] Extract shared `cn()` into `src/utils/cn.ts` (currently duplicated in
   `App.tsx`, `ChatSection.tsx`, `TranslationCard.tsx`)
-- [ ] Extract from `App.tsx` (~1500 lines): `AppHeader`, `SettingsPanel`,
+- [x] Extract from `App.tsx` (~1500 lines): `AppHeader`, `SettingsPanel`,
   `TranscribeSection`, `ErrorBanner` into `src/components/`
-- [ ] Extract hooks into `src/hooks/`: `useAudioRecorder` (MediaRecorder + native
+- [x] Extract hooks into `src/hooks/`: `useAudioRecorder` (MediaRecorder + native
   Tauri recording), `useTranscription` (`processAudio` pipeline), `useApiKeySettings`
   (Mistral/DeepL localStorage persistence)
-- [ ] Verify: `bun test && bun run build` green; behavior identical (upload, record,
+- [x] Verify: `bun test && bun run build` green; behavior identical (upload, record,
   settings save, translate pre-fill, chat context, Capacitor back button)
 
 ### M3 — Design tokens refresh (Material You evolution)

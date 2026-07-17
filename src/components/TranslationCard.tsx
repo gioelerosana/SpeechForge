@@ -9,8 +9,7 @@ import {
   AlertTriangle,
   ArrowRight,
 } from "lucide-react";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { cn } from "../utils/cn";
 import {
   DeepLClient,
   DeepLError,
@@ -22,10 +21,6 @@ import {
   type DeepLTranslation,
   type DeepLUsage,
 } from "../services/deepl/deepLClient";
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
 
 // ---------------------------------------------------------------------------
 // Language lists

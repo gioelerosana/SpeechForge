@@ -1,12 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { MessageSquare, Send, Loader2, Trash2, ChevronDown, AlertTriangle } from "lucide-react";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { cn } from "../utils/cn";
 import { MistralClient, type ChatMessage, type ChatOptions } from "../services/mistral/MistralClient";
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
 
 interface ChatSectionProps {
   apiKey: string;
