@@ -58,12 +58,12 @@ export function AppHeader({
             value={activeTab}
             onChange={onTabChange}
             items={items}
-            ariaLabel="Application section"
+            ariaLabel={copy.nav.primary}
             className="hidden md:inline-flex"
           />
 
           <div className="flex items-center gap-1">
-            <IconButton aria-label="Toggle theme" onClick={toggleTheme} size="sm">
+            <IconButton aria-label={copy.common.toggleTheme} onClick={toggleTheme} size="sm">
               {theme === "light" ? <Moon className="size-5" /> : <Sun className="size-5" />}
             </IconButton>
             <IconButton aria-label={copy.common.settings} onClick={onOpenSettings} variant="tonal" size="sm">

@@ -4,7 +4,7 @@ import type {
   SettingsDraft,
   SettingsValidationErrors,
 } from "../hooks/useApiKeySettings";
-import { DEEPL_TARGET_LANGUAGES } from "./TranslationCard";
+import { DEEPL_TARGET_LANGUAGES } from "../constants/deepLLanguages";
 import { IconButton, SelectField, TextField } from "./ui";
 import { useLocale } from "../context/LocaleContext";
 

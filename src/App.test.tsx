@@ -23,11 +23,11 @@ function renderApp() {
 test("preserves tab work and confirms a destructive Home reset", async () => {
   renderApp();
   const desktopNavigation = screen.getByRole("radiogroup", {
-    name: "Application section",
+    name: "Primary navigation",
   });
 
   fireEvent.click(within(desktopNavigation).getByRole("radio", { name: "Translate" }));
-  const source = screen.getByPlaceholderText("Enter text to translate...");
+  const source = screen.getByPlaceholderText("Enter text to translate…");
   fireEvent.change(source, { target: { value: "Keep this draft" } });
 
   fireEvent.click(within(desktopNavigation).getByRole("radio", { name: "Chat" }));
@@ -41,6 +41,6 @@ test("preserves tab work and confirms a destructive Home reset", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Discard and return home" }));
   fireEvent.click(within(desktopNavigation).getByRole("radio", { name: "Translate" }));
   expect(
-    (screen.getByPlaceholderText("Enter text to translate...") as HTMLTextAreaElement).value,
+    (screen.getByPlaceholderText("Enter text to translate…") as HTMLTextAreaElement).value,
   ).toBe("");
 });

@@ -11,15 +11,18 @@ import {
 import {
   Check,
   Copy,
+  Download,
   FileAudio,
   Languages,
   Loader2,
   MessageSquare,
   Mic,
-  Save,
-  StopCircle,
+  RotateCcw,
+  Square,
 } from "lucide-react";
 import { ERROR_MESSAGES } from "../constants/messages";
+import { useLocale } from "../context/LocaleContext";
+import { formatRecordingTime } from "../hooks/useAudioRecorder";
 import type { Status } from "../types";
 import {
   AUDIO_FILE_INPUT_ACCEPT,
@@ -27,9 +30,9 @@ import {
   SUPPORTED_AUDIO_FORMATS_LABEL,
 } from "../utils/audioFormats";
 import { cn } from "../utils/cn";
+import { Button, Card, IconButton, StatusPanel } from "./ui";
 
 interface TranscribeSectionProps {
-  apiKey: string;
   status: Status;
   setStatus: Dispatch<SetStateAction<Status>>;
   progress: string;
@@ -39,6 +42,7 @@ interface TranscribeSectionProps {
   processAudio: (file: File) => Promise<void>;
   startRecording: () => Promise<void>;
   stopRecording: () => Promise<void>;
+  elapsedSeconds: number;
   deepLKeyConfigured: boolean;
   onResetTranslation: () => void;
   onTranslateResult: () => void;
@@ -46,7 +50,6 @@ interface TranscribeSectionProps {
 }
 
 export function TranscribeSection({
-  apiKey,
   status,
   setStatus,
   progress,
@@ -56,81 +59,62 @@ export function TranscribeSection({
   processAudio,
   startRecording,
   stopRecording,
+  elapsedSeconds,
   deepLKeyConfigured,
   onResetTranslation,
   onTranslateResult,
   onChatAboutThis,
 }: TranscribeSectionProps) {
+  const { copy } = useLocale();
   const [isDragOver, setIsDragOver] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const copyFeedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const visualizerBars = useMemo(
-    () => Array.from({ length: 8 }, (_, index) => index),
+  const copyFeedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const visualizerBars = useMemo(() => Array.from({ length: 8 }, (_, index) => index), []);
+
+  useEffect(
+    () => () => {
+      if (copyFeedbackTimeoutRef.current) clearTimeout(copyFeedbackTimeoutRef.current);
+    },
     [],
   );
 
-  useEffect(() => {
-    return () => {
-      if (copyFeedbackTimeoutRef.current) {
-        clearTimeout(copyFeedbackTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    event.target.value = "";
-
+  const processSelectedFile = async (file: File) => {
     if (!isSupportedAudioFile(file)) {
       setError(ERROR_MESSAGES.invalidAudioFile);
       setStatus("error");
       return;
     }
-
     await processAudio(file);
+  };
+
+  const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) await processSelectedFile(file);
   };
 
   const handleDrop = async (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setIsDragOver(false);
     const file = event.dataTransfer.files?.[0];
-    if (!file) return;
-
-    if (!isSupportedAudioFile(file)) {
-      setError(ERROR_MESSAGES.invalidAudioFile);
-      setStatus("error");
-      return;
-    }
-
-    await processAudio(file);
+    if (file) await processSelectedFile(file);
   };
 
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(transcription);
       setIsCopied(true);
-      if (copyFeedbackTimeoutRef.current) {
-        clearTimeout(copyFeedbackTimeoutRef.current);
-      }
-      copyFeedbackTimeoutRef.current = setTimeout(() => {
-        setIsCopied(false);
-      }, 1500);
+      if (copyFeedbackTimeoutRef.current) clearTimeout(copyFeedbackTimeoutRef.current);
+      copyFeedbackTimeoutRef.current = setTimeout(() => setIsCopied(false), 1500);
     } catch (err: unknown) {
-      console.error(
-        "[TranscribeSection] Error copying transcription to clipboard:",
-        err,
-      );
+      console.error("[TranscribeSection] Error copying transcription:", err);
       setError(ERROR_MESSAGES.clipboardCopyFailed);
     }
   };
 
   const downloadText = () => {
-    const blob = new Blob([transcription], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(new Blob([transcription], { type: "text/plain" }));
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = "transcription.txt";
@@ -138,210 +122,164 @@ export function TranscribeSection({
     URL.revokeObjectURL(url);
   };
 
+  const startOver = () => {
+    setStatus("idle");
+    setTranscription("");
+    setError("");
+    onResetTranslation();
+  };
+
   return (
-          <>
-            {/* Input Area */}
-            {(status === "idle" || status === "error") && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Upload */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => fileInputRef.current?.click()}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      fileInputRef.current?.click();
-                    }
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setIsDragOver(true);
-                  }}
-                  onDragLeave={() => setIsDragOver(false)}
-                  onDrop={handleDrop}
-                  className={cn(
-                    "group bg-[var(--md-sys-color-surface-container)] p-8 rounded-[28px] shadow-[0_4px_18px_rgba(27,34,57,0.10)] border border-[color:var(--md-sys-color-outline)]/30 hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(39,80,196,0.22)] transition-all cursor-pointer flex flex-col items-center justify-center h-64 outline-none",
-                    isDragOver &&
-                      "ring-4 ring-[var(--md-sys-color-primary)]/35 border-[var(--md-sys-color-primary)] bg-[var(--md-sys-color-primary-container)]/25",
-                  )}
-                  aria-label="Upload audio file"
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept={AUDIO_FILE_INPUT_ACCEPT}
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                  <div className="w-16 h-16 bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] rounded-3xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <FileAudio className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-xl font-extrabold text-[var(--md-sys-color-on-surface)]">
-                    Upload Audio
-                  </h3>
-                  <p className="text-[var(--md-sys-color-on-surface-variant)] text-center mt-2 text-sm">
-                    {isDragOver
-                      ? "Drop your audio file here"
-                      : `Click or drag and drop (${SUPPORTED_AUDIO_FORMATS_LABEL})`}
-                  </p>
-                </div>
+    <div className="space-y-8">
+      <header className="max-w-3xl">
+        <p className="text-sm font-extrabold uppercase tracking-[0.16em] text-primary">Mistral AI</p>
+        <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-on-surface sm:text-4xl">
+          {copy.transcribe.title}
+        </h1>
+        <p className="mt-3 text-base leading-7 text-on-surface-variant">{copy.transcribe.subtitle}</p>
+      </header>
 
-                {/* Record */}
-                <button
-                  onClick={startRecording}
-                  className="group bg-[var(--md-sys-color-surface-container)] p-8 rounded-[28px] shadow-[0_4px_18px_rgba(27,34,57,0.10)] border border-[color:var(--md-sys-color-outline)]/30 hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(176,54,74,0.24)] transition-all cursor-pointer flex flex-col items-center justify-center h-64"
-                >
-                  <div className="w-16 h-16 bg-rose-200/80 dark:bg-rose-900/45 text-rose-700 dark:text-rose-300 rounded-3xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Mic className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-xl font-extrabold text-[var(--md-sys-color-on-surface)]">
-                    Record Voice
-                  </h3>
-                  <p className="text-[var(--md-sys-color-on-surface-variant)] text-center mt-2 text-sm">
-                    Tap to start recording
-                  </p>
-                </button>
-              </div>
+      {(status === "idle" || status === "error") && (
+        <div className="grid gap-5 md:grid-cols-2">
+          <Card
+            variant="elevated"
+            role="button"
+            tabIndex={0}
+            aria-label={copy.transcribe.upload}
+            onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                fileInputRef.current?.click();
+              }
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setIsDragOver(true);
+            }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={(event) => void handleDrop(event)}
+            className={cn(
+              "group flex min-h-64 cursor-pointer flex-col items-start justify-between border border-transparent p-7 transition-[border,transform,box-shadow] hover:-translate-y-0.5 hover:shadow-[var(--sf-elevation-3)]",
+              isDragOver && "border-primary bg-primary-container/40",
             )}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={AUDIO_FILE_INPUT_ACCEPT}
+              onChange={(event) => void handleFileUpload(event)}
+              className="hidden"
+            />
+            <span className="flex size-14 items-center justify-center rounded-[var(--sf-shape-lg)] bg-primary-container text-on-primary-container">
+              <FileAudio className="size-7" aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className="text-xl font-extrabold text-on-surface">{copy.transcribe.upload}</h2>
+              <p className="mt-2 text-sm text-on-surface-variant">
+                {isDragOver ? copy.transcribe.dropHint : copy.transcribe.uploadHint}
+              </p>
+              <p className="mt-4 text-xs font-bold text-primary">
+                {copy.transcribe.formats(SUPPORTED_AUDIO_FORMATS_LABEL)}
+              </p>
+            </div>
+          </Card>
 
-            {/* Recording State */}
-            {status === "recording" && (
-              <div className="flex flex-col items-center justify-center py-12 bg-[var(--md-sys-color-surface-container)] rounded-[32px] shadow-[0_8px_24px_rgba(60,20,31,0.18)] border border-rose-300/30">
-                <div className="w-20 h-20 bg-rose-600 rounded-[24px] flex items-center justify-center mb-6 shadow-lg shadow-rose-300/40 dark:shadow-none">
-                  <Mic className="w-10 h-10 text-white" />
-                </div>
-                <h2 className="text-2xl font-extrabold text-[var(--md-sys-color-on-surface)] mb-2">
-                  Recording...
-                </h2>
-                <p className="text-[var(--md-sys-color-on-surface-variant)] mb-8">
-                  Speak clearly into the microphone
-                </p>
-                <div className="audio-visualizer mb-8" aria-hidden="true">
-                  {visualizerBars.map((bar) => (
-                    <span
-                      key={bar}
-                      className="audio-visualizer-bar"
-                      style={{ animationDelay: `${bar * 0.11}s` }}
-                    />
-                  ))}
-                </div>
-                <button
-                  onClick={stopRecording}
-                  className="bg-rose-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-rose-700 flex items-center gap-2 shadow-md transition-all hover:scale-105"
-                >
-                  <StopCircle className="w-5 h-5" /> Stop Recording
-                </button>
-              </div>
-            )}
+          <Card variant="elevated" className="flex min-h-64 flex-col items-start justify-between p-7">
+            <span className="flex size-14 items-center justify-center rounded-[var(--sf-shape-lg)] bg-secondary-container text-on-secondary-container">
+              <Mic className="size-7" aria-hidden="true" />
+            </span>
+            <div className="w-full">
+              <h2 className="text-xl font-extrabold text-on-surface">{copy.transcribe.record}</h2>
+              <p className="mt-2 text-sm text-on-surface-variant">{copy.transcribe.recordHint}</p>
+              <Button
+                className="mt-5"
+                variant="tonal"
+                leadingIcon={Mic}
+                onClick={() => void startRecording()}
+              >
+                {copy.transcribe.record}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
 
-            {/* Processing State */}
-            {(status === "processing" || status === "transcribing") && (
-              <div className="flex flex-col items-center justify-center py-12 bg-[var(--md-sys-color-surface-container)] rounded-[32px] border border-[color:var(--md-sys-color-outline)]/30 shadow-[0_8px_24px_rgba(39,80,196,0.14)]">
-                <Loader2 className="w-12 h-12 text-[var(--md-sys-color-primary)] animate-spin mb-6" />
-                <h2 className="text-2xl font-extrabold text-[var(--md-sys-color-on-surface)] mb-2">
-                  Processing Audio
-                </h2>
-                <p className="text-[var(--md-sys-color-on-surface-variant)] text-lg">
-                  {progress}
-                </p>
-              </div>
-            )}
+      {status === "recording" && (
+        <StatusPanel
+          icon={Mic}
+          title={copy.transcribe.recording}
+          description={copy.transcribe.recordingHint}
+          live="polite"
+        >
+          <p className="font-mono text-3xl font-extrabold tabular-nums text-on-surface">
+            {formatRecordingTime(elapsedSeconds)}
+          </p>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            {copy.transcribe.elapsed(formatRecordingTime(elapsedSeconds))}
+          </p>
+          <div className="audio-visualizer my-6" aria-hidden="true">
+            {visualizerBars.map((bar) => (
+              <span key={bar} className="audio-visualizer-bar" style={{ animationDelay: `${bar * 0.11}s` }} />
+            ))}
+          </div>
+          <Button variant="danger" leadingIcon={Square} onClick={() => void stopRecording()}>
+            {copy.transcribe.stop}
+          </Button>
+        </StatusPanel>
+      )}
 
-            {/* Result State */}
-            {status === "done" && (
-              <div className="bg-[var(--md-sys-color-surface-container)] rounded-[30px] shadow-[0_8px_24px_rgba(27,34,57,0.10)] border border-[color:var(--md-sys-color-outline)]/30 overflow-hidden">
-                <div className="bg-[var(--md-sys-color-surface-container-high)] px-6 py-4 border-b border-[color:var(--md-sys-color-outline)]/30 flex justify-between items-center">
-                  <h3 className="font-bold text-[var(--md-sys-color-on-surface)]">
-                    Transcription Result
-                  </h3>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={copyToClipboard}
-                      className={cn(
-                        "p-2.5 hover:bg-[var(--md-sys-color-surface-container-highest)] rounded-xl transition-colors",
-                        isCopied
-                          ? "text-[var(--md-sys-color-primary)]"
-                          : "text-[var(--md-sys-color-on-surface-variant)]",
-                      )}
-                      title={isCopied ? "Copied" : "Copy"}
-                      aria-label={
-                        isCopied ? "Copied to clipboard" : "Copy to clipboard"
-                      }
-                    >
-                      {isCopied ? (
-                        <Check className="w-5 h-5" />
-                      ) : (
-                        <Copy className="w-5 h-5" />
-                      )}
-                    </button>
-                    <button
-                      onClick={downloadText}
-                      className="p-2.5 hover:bg-[var(--md-sys-color-surface-container-highest)] rounded-xl text-[var(--md-sys-color-on-surface-variant)]"
-                      title="Save"
-                    >
-                      <Save className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-                <div className="p-6">
-                  <textarea
-                    className="w-full h-96 p-4 rounded-2xl text-on-surface bg-surface leading-relaxed outline-none resize-none border border-outline/20 focus:ring-2 focus:ring-primary/20 transition-all"
-                    value={transcription}
-                    onChange={(e) => setTranscription(e.target.value)}
-                  />
-                </div>
-                <div className="bg-[var(--md-sys-color-surface-container-high)] px-6 py-4 border-t border-[color:var(--md-sys-color-outline)]/30 flex flex-wrap items-center justify-between gap-3">
-                  <button
-                    onClick={() => {
-                      setStatus("idle");
-                      onResetTranslation();
-                    }}
-                    className="text-[var(--md-sys-color-primary)] font-bold hover:opacity-80"
-                  >
-                    Transcribe Another File
-                  </button>
-                  {/* 7.5 — Translate result CTA */}
-                  <button
-                    onClick={onTranslateResult}
-                    className={cn(
-                      "flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-sm transition-all",
-                      deepLKeyConfigured
-                        ? "bg-[var(--md-sys-color-tertiary-container)] text-[var(--md-sys-color-on-tertiary-container)] hover:opacity-90"
-                        : "bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] hover:opacity-80",
-                    )}
-                    title={
-                      deepLKeyConfigured
-                        ? "Translate with DeepL"
-                        : "Add a DeepL API key in Settings to translate"
-                    }
-                  >
-                    <Languages className="w-4 h-4" />
-                    Translate result
-                  </button>
+      {(status === "processing" || status === "transcribing") && (
+        <StatusPanel
+          icon={Loader2}
+          title={copy.transcribe.processing}
+          description={progress}
+          live="polite"
+        />
+      )}
 
-                  {/* 7.6 — Chat about this CTA */}
-                  <button
-                    onClick={onChatAboutThis}
-                    className={cn(
-                      "flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-sm transition-all",
-                      apiKey
-                        ? "bg-[var(--md-sys-color-secondary-container)] text-[var(--md-sys-color-on-secondary-container)] hover:opacity-90"
-                        : "bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] hover:opacity-80",
-                    )}
-                    title={
-                      apiKey
-                        ? "Chat with Mistral about this transcript"
-                        : "Add a Mistral API key in Settings to chat"
-                    }
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    Chat about this
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
+      {status === "done" && (
+        <Card variant="elevated" className="overflow-hidden">
+          <div className="flex items-center justify-between gap-4 border-b border-outline-variant bg-surface-container-high px-5 py-4 sm:px-7">
+            <h2 className="text-lg font-extrabold text-on-surface">{copy.transcribe.result}</h2>
+            <div className="flex items-center gap-1">
+              <IconButton
+                aria-label={isCopied ? copy.common.copied : copy.common.copy}
+                onClick={() => void copyToClipboard()}
+              >
+                {isCopied ? <Check className="size-5" /> : <Copy className="size-5" />}
+              </IconButton>
+              <IconButton aria-label={copy.common.download} onClick={downloadText}>
+                <Download className="size-5" />
+              </IconButton>
+            </div>
+          </div>
+          <div className="p-5 sm:p-7">
+            <textarea
+              aria-label={copy.transcribe.result}
+              className="min-h-80 w-full resize-y rounded-[var(--sf-shape-lg)] border border-outline-variant bg-surface p-5 leading-7 text-on-surface focus:border-primary"
+              value={transcription}
+              onChange={(event) => setTranscription(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-wrap gap-3 border-t border-outline-variant bg-surface-container-high px-5 py-4 sm:px-7">
+            <Button variant="text" leadingIcon={RotateCcw} onClick={startOver}>
+              {copy.transcribe.newTranscription}
+            </Button>
+            <div className="flex-1" />
+            <Button
+              variant={deepLKeyConfigured ? "tonal" : "outlined"}
+              leadingIcon={Languages}
+              onClick={onTranslateResult}
+            >
+              {copy.transcribe.translateResult}
+            </Button>
+            <Button variant="tonal" leadingIcon={MessageSquare} onClick={onChatAboutThis}>
+              {copy.transcribe.chatAbout}
+            </Button>
+          </div>
+        </Card>
+      )}
+    </div>
   );
 }
-

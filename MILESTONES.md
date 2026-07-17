@@ -55,11 +55,11 @@ must pass before each squash-merge to `main` (local squashes; push only after us
 
 ### M5 — Workflow renovation
 
-- [ ] Renovate transcribe flow: provider gate, upload/record, elapsed timer, processing, result actions
-- [ ] Renovate translation and chat while preserving in-session work and transcript context
-- [ ] Restyle `TitleBar`, error alert, empty states, provider gates, and footer
-- [ ] Guard async workflows against stale updates after reset
-- [ ] Verify: `bun test && bun run build` green; light/dark visual QA
+- [x] Renovate transcribe flow: provider gate, upload/record, elapsed timer, processing, result actions
+- [x] Renovate translation and chat while preserving in-session work and transcript context
+- [x] Restyle `TitleBar`, error alert, empty states, provider gates, and footer
+- [x] Guard async workflows against stale updates after reset
+- [x] Verify: `bun test && bun run build` green; light/dark desktop/mobile visual QA
 
 ### M6 — Final QA & release proposal
 

@@ -1,15 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { AlertTriangle, Check, ChevronDown, Copy, Languages } from "lucide-react";
 import {
-  Languages,
-  Copy,
-  Check,
-  Loader2,
-  ChevronDown,
-  ChevronUp,
-  AlertTriangle,
-  ArrowRight,
-} from "lucide-react";
-import { cn } from "../utils/cn";
+  DEEPL_SOURCE_LANGUAGES,
+  DEEPL_TARGET_LANGUAGES,
+} from "../constants/deepLLanguages";
+import { useLocale } from "../context/LocaleContext";
 import {
   DeepLClient,
   DeepLError,
@@ -18,91 +13,15 @@ import {
   type DeepLModelType,
   type DeepLPlan,
   type DeepLSplitSentences,
-  type DeepLTranslation,
   type DeepLUsage,
 } from "../services/deepl/deepLClient";
+import { cn } from "../utils/cn";
+import { Button, Card, IconButton, SelectField } from "./ui";
 
-// ---------------------------------------------------------------------------
-// Language lists
-// ---------------------------------------------------------------------------
+export { DEEPL_SOURCE_LANGUAGES, DEEPL_TARGET_LANGUAGES };
 
-export const DEEPL_SOURCE_LANGUAGES: Array<{ code: string; name: string }> = [
-  { code: "", name: "Auto-detect" },
-  { code: "AR", name: "Arabic" },
-  { code: "BG", name: "Bulgarian" },
-  { code: "CS", name: "Czech" },
-  { code: "DA", name: "Danish" },
-  { code: "DE", name: "German" },
-  { code: "EL", name: "Greek" },
-  { code: "EN", name: "English" },
-  { code: "ES", name: "Spanish" },
-  { code: "ET", name: "Estonian" },
-  { code: "FI", name: "Finnish" },
-  { code: "FR", name: "French" },
-  { code: "HU", name: "Hungarian" },
-  { code: "ID", name: "Indonesian" },
-  { code: "IT", name: "Italian" },
-  { code: "JA", name: "Japanese" },
-  { code: "KO", name: "Korean" },
-  { code: "LT", name: "Lithuanian" },
-  { code: "LV", name: "Latvian" },
-  { code: "NB", name: "Norwegian (Bokmål)" },
-  { code: "NL", name: "Dutch" },
-  { code: "PL", name: "Polish" },
-  { code: "PT", name: "Portuguese" },
-  { code: "RO", name: "Romanian" },
-  { code: "RU", name: "Russian" },
-  { code: "SK", name: "Slovak" },
-  { code: "SL", name: "Slovenian" },
-  { code: "SV", name: "Swedish" },
-  { code: "TR", name: "Turkish" },
-  { code: "UK", name: "Ukrainian" },
-  { code: "ZH", name: "Chinese" },
-];
-
-export const DEEPL_TARGET_LANGUAGES: Array<{ code: string; name: string }> = [
-  { code: "AR", name: "Arabic" },
-  { code: "BG", name: "Bulgarian" },
-  { code: "CS", name: "Czech" },
-  { code: "DA", name: "Danish" },
-  { code: "DE", name: "German" },
-  { code: "EL", name: "Greek" },
-  { code: "EN-GB", name: "English (British)" },
-  { code: "EN-US", name: "English (American)" },
-  { code: "ES", name: "Spanish" },
-  { code: "ET", name: "Estonian" },
-  { code: "FI", name: "Finnish" },
-  { code: "FR", name: "French" },
-  { code: "HU", name: "Hungarian" },
-  { code: "ID", name: "Indonesian" },
-  { code: "IT", name: "Italian" },
-  { code: "JA", name: "Japanese" },
-  { code: "KO", name: "Korean" },
-  { code: "LT", name: "Lithuanian" },
-  { code: "LV", name: "Latvian" },
-  { code: "NB", name: "Norwegian (Bokmål)" },
-  { code: "NL", name: "Dutch" },
-  { code: "PL", name: "Polish" },
-  { code: "PT-BR", name: "Portuguese (Brazilian)" },
-  { code: "PT-PT", name: "Portuguese (European)" },
-  { code: "RO", name: "Romanian" },
-  { code: "RU", name: "Russian" },
-  { code: "SK", name: "Slovak" },
-  { code: "SL", name: "Slovenian" },
-  { code: "SV", name: "Swedish" },
-  { code: "TR", name: "Turkish" },
-  { code: "UK", name: "Ukrainian" },
-  { code: "ZH-HANS", name: "Chinese (Simplified)" },
-  { code: "ZH-HANT", name: "Chinese (Traditional)" },
-];
-
-// Soft warning threshold: 90% of 500 000 free-tier chars/month
 const FREE_TIER_LIMIT = 500_000;
 const QUOTA_WARN_RATIO = 0.9;
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
 
 interface TranslationCardProps {
   apiKey: string;
@@ -114,10 +33,6 @@ interface TranslationCardProps {
   onDirtyChange?: (dirty: boolean) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
 export function TranslationCard({
   apiKey,
   plan,
@@ -127,6 +42,7 @@ export function TranslationCard({
   onTranslateComplete,
   onDirtyChange,
 }: TranslationCardProps) {
+  const { copy } = useLocale();
   const [sourceText, setSourceText] = useState(initialText);
   const [sourceLang, setSourceLang] = useState("");
   const [targetLang, setTargetLang] = useState(defaultTargetLang);
@@ -136,75 +52,63 @@ export function TranslationCard({
   const [error, setError] = useState("");
   const [isCopied, setIsCopied] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-
-  // Advanced options
   const [formality, setFormality] = useState<DeepLFormality>("default");
-  const [modelType, setModelType] = useState<DeepLModelType>(
-    "quality_optimized",
-  );
+  const [modelType, setModelType] = useState<DeepLModelType>("quality_optimized");
   const [preserveFormatting, setPreserveFormatting] = useState(false);
-  const [splitSentences, setSplitSentences] =
-    useState<DeepLSplitSentences>("1");
-
+  const [splitSentences, setSplitSentences] = useState<DeepLSplitSentences>("1");
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const translationRunRef = useRef(0);
 
-  // Sync initialText when parent pushes transcript text into the card
   useEffect(() => {
-    if (initialText) {
-      setSourceText(initialText);
-      setTranslatedText("");
-      setDetectedLang("");
-      setError("");
-    }
+    if (!initialText) return;
+    translationRunRef.current += 1;
+    setSourceText(initialText);
+    setTranslatedText("");
+    setDetectedLang("");
+    setError("");
+    setIsTranslating(false);
   }, [initialText]);
 
   useEffect(() => {
     onDirtyChange?.(Boolean(sourceText.trim() || translatedText.trim()));
   }, [onDirtyChange, sourceText, translatedText]);
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
+      translationRunRef.current += 1;
       if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-    };
-  }, []);
-
-  const formalitySupported = FORMALITY_SUPPORTED_LANGS.has(
-    targetLang.split("-")[0] ?? "",
+    },
+    [],
   );
 
-  const charCount = sourceText.length;
-
-  // Quota warning (soft, non-blocking)
+  const formalitySupported = FORMALITY_SUPPORTED_LANGS.has(targetLang.split("-")[0] ?? "");
   const quotaWarning =
-    usage &&
-    usage.character_count / usage.character_limit >= QUOTA_WARN_RATIO
-      ? `Warning: ${usage.character_count.toLocaleString()} / ${usage.character_limit.toLocaleString()} characters used this billing period.`
+    usage && usage.character_count / usage.character_limit >= QUOTA_WARN_RATIO
+      ? copy.translate.quotaWarning(usage.character_count, usage.character_limit)
       : null;
-
   const freeTierWarning =
-    !usage && charCount >= FREE_TIER_LIMIT * QUOTA_WARN_RATIO
-      ? `You are approaching the typical DeepL free-tier limit (500 000 chars/month).`
+    !usage && sourceText.length >= FREE_TIER_LIMIT * QUOTA_WARN_RATIO
+      ? copy.translate.freeTierWarning
       : null;
 
   const translate = async () => {
     if (!apiKey) {
-      setError("DeepL API key is not configured. Add it in Settings.");
+      setError(copy.translate.apiMissing);
       return;
     }
     if (!sourceText.trim()) {
-      setError("Please enter some text to translate.");
+      setError(copy.translate.textRequired);
       return;
     }
 
+    const runId = ++translationRunRef.current;
     setError("");
     setIsTranslating(true);
     setTranslatedText("");
     setDetectedLang("");
 
     try {
-      const client = new DeepLClient(apiKey, plan);
-      const results: DeepLTranslation[] = await client.translateText(
+      const [result] = await new DeepLClient(apiKey, plan).translateText(
         [sourceText],
         targetLang,
         {
@@ -215,22 +119,16 @@ export function TranslationCard({
           splitSentences,
         },
       );
-
-      const result = results[0];
-      if (result) {
-        setTranslatedText(result.text);
-        setDetectedLang(result.detectedSourceLanguage);
-        onTranslateComplete?.(result.text);
-      }
+      if (translationRunRef.current !== runId || !result) return;
+      setTranslatedText(result.text);
+      setDetectedLang(result.detectedSourceLanguage);
+      onTranslateComplete?.(result.text);
     } catch (err: unknown) {
+      if (translationRunRef.current !== runId) return;
       console.error("[TranslationCard] Translation failed:", err);
-      if (err instanceof DeepLError) {
-        setError(err.message);
-      } else {
-        setError("Translation failed. Please try again.");
-      }
+      setError(err instanceof DeepLError ? err.message : copy.translate.failed);
     } finally {
-      setIsTranslating(false);
+      if (translationRunRef.current === runId) setIsTranslating(false);
     }
   };
 
@@ -240,279 +138,181 @@ export function TranslationCard({
       setIsCopied(true);
       if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
       copyTimeoutRef.current = setTimeout(() => setIsCopied(false), 1500);
-    } catch {
-      console.error("[TranslationCard] Clipboard copy failed");
+    } catch (err: unknown) {
+      console.error("[TranslationCard] Clipboard copy failed:", err);
     }
   };
 
   return (
-    <div
-      id="translation-card"
-      className="bg-surface-container rounded-[30px] shadow-[0_8px_24px_rgba(27,34,57,0.10)] border border-outline/30 overflow-hidden"
-    >
-      {/* Card header */}
-      <div className="bg-surface-container-high px-6 py-4 border-b border-outline/30 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-xl bg-tertiary-container text-on-tertiary-container flex items-center justify-center">
-          <Languages className="w-4 h-4" />
-        </div>
-        <h3 className="font-bold text-on-surface">
-          DeepL Translation
-        </h3>
-      </div>
+    <div id="translation-card" className="space-y-8">
+      <header className="max-w-3xl">
+        <p className="text-sm font-extrabold uppercase tracking-[0.16em] text-tertiary">DeepL</p>
+        <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-on-surface sm:text-4xl">
+          {copy.translate.title}
+        </h1>
+        <p className="mt-3 text-base leading-7 text-on-surface-variant">{copy.translate.subtitle}</p>
+      </header>
 
-      <div className="p-6 space-y-5">
-        {/* Quota warning banner */}
-        {(quotaWarning || freeTierWarning) && (
-          <div className="flex items-start gap-2 rounded-2xl bg-amber-100/70 dark:bg-amber-900/30 border border-amber-300/50 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>{quotaWarning ?? freeTierWarning}</span>
-          </div>
-        )}
-
-        {/* Error */}
-        {error && (
-          <div className="bg-error-container text-on-error-container px-4 py-3 rounded-2xl text-sm border border-red-300/40">
-            {error}
-          </div>
-        )}
-
-        {/* Language selectors */}
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-3 items-center">
-          {/* Source language */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide">
-              Source
-            </label>
-            <div className="relative group">
-              <select
-                value={sourceLang}
-                onChange={(e) => setSourceLang(e.target.value)}
-                className="w-full p-3 pr-10 rounded-2xl border border-outline/40 bg-surface text-on-surface focus:ring-2 focus:ring-primary/50 outline-none text-sm appearance-none transition-all cursor-pointer"
-              >
-                {DEEPL_SOURCE_LANGUAGES.map((l) => (
-                  <option key={l.code} value={l.code} className="bg-surface text-on-surface">
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant pointer-events-none group-focus-within:rotate-180 transition-transform" />
-            </div>
-            {detectedLang && sourceLang === "" && (
-              <p className="text-xs text-on-surface-variant pl-1">
-                Detected:{" "}
-                <span className="font-semibold text-primary">
-                  {detectedLang}
-                </span>
-              </p>
-            )}
-          </div>
-
-          {/* Arrow */}
-          <ArrowRight className="hidden sm:block w-5 h-5 text-on-surface-variant self-end mb-3 mx-auto" />
-
-          {/* Target language */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide">
-              Target
-            </label>
-            <div className="relative group">
-              <select
-                value={targetLang}
-                onChange={(e) => setTargetLang(e.target.value)}
-                className="w-full p-3 pr-10 rounded-2xl border border-outline/40 bg-surface text-on-surface focus:ring-2 focus:ring-primary/50 outline-none text-sm appearance-none transition-all cursor-pointer"
-              >
-                {DEEPL_TARGET_LANGUAGES.map((l) => (
-                  <option key={l.code} value={l.code} className="bg-surface text-on-surface">
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant pointer-events-none group-focus-within:rotate-180 transition-transform" />
-            </div>
-          </div>
-        </div>
-
-        {/* Source text input */}
-        <div className="relative">
-          <textarea
-            value={sourceText}
-            onChange={(e) => setSourceText(e.target.value)}
-            placeholder="Enter text to translate..."
-            rows={5}
-            className="w-full p-4 rounded-2xl border border-outline/40 bg-surface text-on-surface focus:ring-2 focus:ring-primary/50 outline-none resize-none text-sm leading-relaxed"
-          />
-          <span className="absolute bottom-3 right-4 text-xs text-on-surface-variant select-none">
-            {charCount.toLocaleString()} chars
+      <Card variant="elevated" className="overflow-hidden">
+        <div className="flex items-center gap-3 border-b border-outline-variant bg-surface-container-high px-5 py-4 sm:px-7">
+          <span className="flex size-10 items-center justify-center rounded-[var(--sf-shape-md)] bg-tertiary-container text-on-tertiary-container">
+            <Languages className="size-5" aria-hidden="true" />
           </span>
+          <h2 className="font-extrabold text-on-surface">{copy.translate.serviceLabel}</h2>
         </div>
 
-        {/* Advanced options toggle */}
-        <button
-          onClick={() => setShowAdvanced((v) => !v)}
-          className="flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface transition-colors"
-        >
-          {showAdvanced ? (
-            <ChevronUp className="w-4 h-4" />
-          ) : (
-            <ChevronDown className="w-4 h-4" />
+        <div className="space-y-6 p-5 sm:p-7">
+          {(quotaWarning || freeTierWarning) && (
+            <div className="flex items-start gap-3 rounded-[var(--sf-shape-md)] bg-tertiary-container px-4 py-3 text-sm text-on-tertiary-container">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <span>{quotaWarning ?? freeTierWarning}</span>
+            </div>
           )}
-          Advanced options
-        </button>
 
-        {/* Advanced options panel */}
-        {showAdvanced && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-surface-container-low border border-outline/20">
-            {/* Formality */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide">
-                Formality
-              </label>
-              <div className="relative group">
-                <select
-                  value={formality}
-                  onChange={(e) => setFormality(e.target.value as DeepLFormality)}
-                  disabled={!formalitySupported}
-                  className={cn(
-                    "w-full p-2.5 pr-9 rounded-xl border border-outline/40 bg-surface text-on-surface outline-none text-sm appearance-none cursor-pointer transition-all",
-                    !formalitySupported && "opacity-40 cursor-not-allowed",
-                  )}
-                >
-                  <option value="default" className="bg-surface">Default</option>
-                  <option value="more" className="bg-surface">More formal</option>
-                  <option value="less" className="bg-surface">Less formal</option>
-                  <option value="prefer_more" className="bg-surface">Prefer more formal</option>
-                  <option value="prefer_less" className="bg-surface">Prefer less formal</option>
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface-variant pointer-events-none group-focus-within:rotate-180 transition-transform" />
-              </div>
-              {!formalitySupported && (
-                <p className="text-xs text-on-surface-variant pl-0.5 mt-0.5">
-                  Not available for target language
-                </p>
-              )}
+          {error && (
+            <div role="alert" className="rounded-[var(--sf-shape-md)] bg-error-container px-4 py-3 text-sm text-on-error-container">
+              {error}
             </div>
+          )}
 
-            {/* Model type */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide">
-                Model
-              </label>
-              <div className="relative group">
-                <select
-                  value={modelType}
-                  onChange={(e) =>
-                    setModelType(e.target.value as DeepLModelType)
-                  }
-                  className="w-full p-2.5 pr-9 rounded-xl border border-outline/40 bg-surface text-on-surface outline-none text-sm appearance-none cursor-pointer transition-all"
-                >
-                  <option value="quality_optimized" className="bg-surface">Quality optimized</option>
-                  <option value="prefer_quality_optimized" className="bg-surface">
-                    Prefer quality optimized
-                  </option>
-                  <option value="latency_optimized" className="bg-surface">Latency optimized</option>
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface-variant pointer-events-none group-focus-within:rotate-180 transition-transform" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SelectField
+              label={copy.translate.source}
+              value={sourceLang}
+              onChange={(event) => setSourceLang(event.target.value)}
+              helperText={
+                detectedLang && !sourceLang
+                  ? `${copy.translate.detected}: ${detectedLang}`
+                  : undefined
+              }
+            >
+              {DEEPL_SOURCE_LANGUAGES.map((language) => (
+                <option key={language.code} value={language.code}>
+                  {language.code ? language.name : copy.translate.autoDetect}
+                </option>
+              ))}
+            </SelectField>
+            <SelectField
+              label={copy.translate.target}
+              value={targetLang}
+              onChange={(event) => setTargetLang(event.target.value)}
+            >
+              {DEEPL_TARGET_LANGUAGES.map((language) => (
+                <option key={language.code} value={language.code}>{language.name}</option>
+              ))}
+            </SelectField>
+          </div>
+
+          <div className="grid overflow-hidden rounded-[var(--sf-shape-lg)] border border-outline-variant lg:grid-cols-2 lg:divide-x lg:divide-outline-variant">
+            <label className="flex min-h-72 flex-col bg-surface p-5">
+              <span className="text-sm font-extrabold text-on-surface">{copy.translate.source}</span>
+              <textarea
+                value={sourceText}
+                onChange={(event) => setSourceText(event.target.value)}
+                placeholder={copy.translate.inputPlaceholder}
+                className="mt-3 min-h-48 flex-1 resize-none bg-transparent leading-7 text-on-surface outline-none placeholder:text-on-surface-variant/70"
+              />
+              <span className="text-right text-xs text-on-surface-variant">
+                {copy.translate.characters(sourceText.length)}
+              </span>
+            </label>
+
+            <div className="flex min-h-72 flex-col border-t border-outline-variant bg-surface-container-low p-5 lg:border-t-0">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-extrabold text-on-surface">{copy.translate.output}</span>
+                {translatedText && (
+                  <IconButton
+                    size="sm"
+                    aria-label={isCopied ? copy.common.copied : copy.translate.copyTranslation}
+                    onClick={() => void copyResult()}
+                  >
+                    {isCopied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  </IconButton>
+                )}
               </div>
-            </div>
-
-            {/* Split sentences */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide">
-                Split sentences
-              </label>
-              <div className="relative group">
-                <select
-                  value={splitSentences}
-                  onChange={(e) =>
-                    setSplitSentences(e.target.value as DeepLSplitSentences)
-                  }
-                  className="w-full p-2.5 pr-9 rounded-xl border border-outline/40 bg-surface text-on-surface outline-none text-sm appearance-none cursor-pointer transition-all"
-                >
-                  <option value="0" className="bg-surface">No splitting</option>
-                  <option value="1" className="bg-surface">Split on punctuation (default)</option>
-                  <option value="nonewlines" className="bg-surface">
-                    Split on punctuation, not newlines
-                  </option>
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface-variant pointer-events-none group-focus-within:rotate-180 transition-transform" />
-              </div>
-            </div>
-
-            {/* Preserve formatting */}
-            <div className="flex flex-col gap-1 justify-center">
-              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide mb-1">
-                Preserve formatting
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <div className="relative flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={preserveFormatting}
-                    onChange={(e) => setPreserveFormatting(e.target.checked)}
-                    className="w-4 h-4 rounded border-outline/40 bg-surface accent-primary cursor-pointer transition-all"
+              <div aria-live="polite" className="mt-3 flex min-h-48 flex-1">
+                {translatedText ? (
+                  <textarea
+                    readOnly
+                    aria-label={copy.translate.output}
+                    value={translatedText}
+                    className="min-h-48 w-full resize-none bg-transparent leading-7 text-on-surface outline-none"
                   />
-                </div>
-                <span className="text-sm text-on-surface group-hover:text-primary transition-colors">
-                  Keep original formatting
-                </span>
-              </label>
-            </div>
-          </div>
-        )}
-
-        {/* Translate button */}
-        <button
-          onClick={() => void translate()}
-          disabled={isTranslating || !sourceText.trim()}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary text-on-primary px-8 py-3 rounded-2xl font-bold hover:opacity-90 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-md shadow-primary/20"
-        >
-          {isTranslating ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Translating…
-            </>
-          ) : (
-            <>
-              <Languages className="w-4 h-4" />
-              Translate
-            </>
-          )}
-        </button>
-
-        {/* Output */}
-        {translatedText && (
-          <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide">
-                Translation
-              </label>
-              <button
-                onClick={() => void copyResult()}
-                className={cn(
-                  "flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors",
-                  isCopied
-                    ? "text-primary bg-primary-container"
-                    : "text-on-surface-variant hover:bg-surface-container-highest",
-                )}
-                aria-label={isCopied ? "Copied" : "Copy translation"}
-              >
-                {isCopied ? (
-                  <Check className="w-3.5 h-3.5" />
                 ) : (
-                  <Copy className="w-3.5 h-3.5" />
+                  <div className="m-auto flex flex-col items-center px-4 text-center text-on-surface-variant">
+                    <Languages className="size-8 opacity-60" aria-hidden="true" />
+                    <p className="mt-3 text-sm">{copy.translate.inputPlaceholder}</p>
+                  </div>
                 )}
-                {isCopied ? "Copied" : "Copy"}
-              </button>
+              </div>
             </div>
-            <textarea
-              readOnly
-              rows={5}
-              value={translatedText}
-              className="w-full p-4 rounded-2xl border border-outline/20 bg-surface text-on-surface outline-none resize-none text-sm leading-relaxed"
-            />
           </div>
-        )}
-      </div>
+
+          <button
+            type="button"
+            aria-expanded={showAdvanced}
+            onClick={() => setShowAdvanced((current) => !current)}
+            className="flex min-h-11 items-center gap-2 rounded-[var(--sf-shape-full)] px-3 text-sm font-bold text-on-surface-variant hover:bg-on-surface/8"
+          >
+            <ChevronDown className={cn("size-4 transition-transform", showAdvanced && "rotate-180")} />
+            {copy.translate.advanced}
+          </button>
+
+          {showAdvanced && (
+            <div className="grid gap-4 rounded-[var(--sf-shape-lg)] bg-surface-container-low p-5 sm:grid-cols-2">
+              <SelectField
+                label={copy.translate.formality}
+                value={formality}
+                disabled={!formalitySupported}
+                helperText={!formalitySupported ? copy.translate.unavailableForLanguage : undefined}
+                onChange={(event) => setFormality(event.target.value as DeepLFormality)}
+              >
+                <option value="default">{copy.translate.defaultOption}</option>
+                <option value="more">{copy.translate.moreFormal}</option>
+                <option value="less">{copy.translate.lessFormal}</option>
+                <option value="prefer_more">{copy.translate.preferMoreFormal}</option>
+                <option value="prefer_less">{copy.translate.preferLessFormal}</option>
+              </SelectField>
+              <SelectField
+                label={copy.translate.model}
+                value={modelType}
+                onChange={(event) => setModelType(event.target.value as DeepLModelType)}
+              >
+                <option value="quality_optimized">{copy.translate.qualityOptimized}</option>
+                <option value="prefer_quality_optimized">{copy.translate.preferQuality}</option>
+                <option value="latency_optimized">{copy.translate.latencyOptimized}</option>
+              </SelectField>
+              <SelectField
+                label={copy.translate.splitSentences}
+                value={splitSentences}
+                onChange={(event) => setSplitSentences(event.target.value as DeepLSplitSentences)}
+              >
+                <option value="0">{copy.translate.noSplitting}</option>
+                <option value="1">{copy.translate.splitPunctuation}</option>
+                <option value="nonewlines">{copy.translate.splitNoNewlines}</option>
+              </SelectField>
+              <label className="flex min-h-12 items-center gap-3 self-end rounded-[var(--sf-shape-md)] border border-outline-variant bg-surface px-4 py-3 text-sm font-bold text-on-surface">
+                <input
+                  type="checkbox"
+                  checked={preserveFormatting}
+                  onChange={(event) => setPreserveFormatting(event.target.checked)}
+                  className="size-4 accent-primary"
+                />
+                {copy.translate.keepFormatting}
+              </label>
+            </div>
+          )}
+
+          <Button
+            leadingIcon={Languages}
+            loading={isTranslating}
+            disabled={!sourceText.trim()}
+            onClick={() => void translate()}
+          >
+            {isTranslating ? copy.translate.translating : copy.translate.action}
+          </Button>
+        </div>
+      </Card>
     </div>
   );
 }

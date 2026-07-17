@@ -1,5 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ERROR_MESSAGES } from "../constants/messages";
+import { useLocale } from "../context/LocaleContext";
 import { audioProcessor } from "../services/audio/AudioProcessor";
 import { MistralClient } from "../services/mistral/MistralClient";
 import type { Status } from "../types";
@@ -26,12 +27,23 @@ export function useTranscription({
   onInvalidApiKey,
   onTranscriptionComplete,
 }: UseTranscriptionOptions) {
+  const { copy } = useLocale();
   const [status, setStatus] = useState<Status>("idle");
   const [progress, setProgress] = useState("");
   const [transcription, setTranscription] = useState("");
+  const runIdRef = useRef(0);
+
+  const cancelProcessing = useCallback(() => {
+    runIdRef.current += 1;
+    setProgress("");
+  }, []);
+
+  useEffect(() => cancelProcessing, [cancelProcessing]);
 
   const processAudio = useCallback(
     async (file: File) => {
+      const runId = ++runIdRef.current;
+      const isCurrent = () => runIdRef.current === runId;
       console.log(
         "[useTranscription] Starting processAudio for file:",
         file.name,
@@ -52,39 +64,48 @@ export function useTranscription({
         onError("");
         setTranscription("");
         setStatus("processing");
-        setProgress("Analyzing audio...");
+        setProgress(copy.transcribe.analyzing);
 
         const duration = await audioProcessor.getAudioDuration(file);
+        if (!isCurrent()) return;
         console.log(`[useTranscription] Audio Duration: ${duration}s`);
 
         const client = new MistralClient(apiKey);
         const results: string[] = [];
 
         if (duration > 900) {
-          setProgress("Splitting long audio file...");
+          setProgress(copy.transcribe.splitting);
           const chunks = await audioProcessor.splitAudio(file);
+          if (!isCurrent()) return;
           console.log(`[useTranscription] Split into ${chunks.length} chunks`);
 
           setStatus("transcribing");
           for (let index = 0; index < chunks.length; index += 1) {
-            setProgress(`Transcribing chunk ${index + 1} of ${chunks.length}...`);
+            setProgress(copy.transcribe.chunk(index + 1, chunks.length));
             const chunk = chunks[index];
             if (!chunk) continue;
-            results.push(await client.transcribe(chunk));
+            const result = await client.transcribe(chunk);
+            if (!isCurrent()) return;
+            results.push(result);
           }
         } else {
-          setProgress("Normalizing audio...");
+          setProgress(copy.transcribe.normalizing);
           const normalizedBlob = await audioProcessor.normalizeAudio(file);
+          if (!isCurrent()) return;
           setStatus("transcribing");
-          setProgress("Sending to Mistral AI...");
-          results.push(await client.transcribe(normalizedBlob));
+          setProgress(copy.transcribe.sending);
+          const result = await client.transcribe(normalizedBlob);
+          if (!isCurrent()) return;
+          results.push(result);
         }
 
+        if (!isCurrent()) return;
         setTranscription(results.join(" "));
         setStatus("done");
         setProgress("");
         onTranscriptionComplete();
       } catch (err: unknown) {
+        if (!isCurrent()) return;
         console.error("[useTranscription] Error during processing:", err);
         let errorMessage = getErrorMessage(err);
 
@@ -102,6 +123,7 @@ export function useTranscription({
     },
     [
       apiKey,
+      copy.transcribe,
       onError,
       onInvalidApiKey,
       onMissingApiKey,
@@ -119,5 +141,6 @@ export function useTranscription({
     transcription,
     setTranscription,
     processAudio,
+    cancelProcessing,
   };
 }

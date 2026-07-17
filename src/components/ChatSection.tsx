@@ -1,7 +1,9 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { MessageSquare, Send, Loader2, Trash2, ChevronDown, AlertTriangle } from "lucide-react";
-import { cn } from "../utils/cn";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { AlertTriangle, FileText, Loader2, MessageSquare, Send, Trash2 } from "lucide-react";
+import { useLocale } from "../context/LocaleContext";
 import { MistralClient, type ChatMessage, type ChatOptions } from "../services/mistral/MistralClient";
+import { cn } from "../utils/cn";
+import { Button, Card, IconButton } from "./ui";
 
 interface ChatSectionProps {
   apiKey: string;
@@ -9,160 +11,184 @@ interface ChatSectionProps {
   onDirtyChange?: (dirty: boolean) => void;
 }
 
-export function ChatSection({ apiKey, initialContext, onDirtyChange }: ChatSectionProps) {
+export function ChatSection({ apiKey, initialContext = "", onDirtyChange }: ChatSectionProps) {
+  const { copy } = useLocale();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [status, setStatus] = useState<"idle" | "thinking" | "error">("idle");
-  const [error, setError] = useState<string>("");
-  
+  const [error, setError] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const chatRunRef = useRef(0);
 
-  // Inizializza con contesto se fornito
+  const contextMessage = useCallback(
+    (): ChatMessage => ({ role: "system", content: copy.chat.systemContext(initialContext) }),
+    [copy.chat, initialContext],
+  );
+
   useEffect(() => {
-    if (initialContext && messages.length === 0) {
-      setMessages([{
-        role: "system",
-        content: `Contesto: il seguente è un transcript audio. Rispondi alle domande dell'utente basandoti su questo:\n\n${initialContext}`
-      }]);
-    }
-  }, [initialContext, messages.length]);
+    if (!initialContext) return;
+    setMessages((current) =>
+      current.some((message) => message.role !== "system") ? current : [contextMessage()],
+    );
+  }, [contextMessage, initialContext]);
 
-  // Scroll a fine messaggi
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, status]);
 
   useEffect(() => {
     onDirtyChange?.(messages.some((message) => message.role !== "system"));
   }, [messages, onDirtyChange]);
 
-  // Focus input all'apertura
   useEffect(() => {
     inputRef.current?.focus();
+    return () => {
+      chatRunRef.current += 1;
+    };
   }, []);
 
   const handleSend = async () => {
-    if (!inputValue.trim() || !apiKey) return;
+    const content = inputValue.trim();
+    if (!content || !apiKey || status === "thinking") return;
 
+    const runId = ++chatRunRef.current;
+    const userMessage: ChatMessage = { role: "user", content };
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
+    setInputValue("");
     setError("");
     setStatus("thinking");
 
-    const userMessage: ChatMessage = { role: "user", content: inputValue.trim() };
-    const newMessages = [...messages, userMessage];
-    
-    setMessages(newMessages);
-    setInputValue("");
-
     try {
-      const client = new MistralClient(apiKey);
       const options: ChatOptions = {
         model: "mistral-small-latest",
         temperature: 0.7,
         maxTokens: 1024,
       };
-
-      const response = await client.chat(newMessages, options);
-      const assistantMessage: ChatMessage = { role: "assistant", content: response };
-      setMessages([...newMessages, assistantMessage]);
+      const response = await new MistralClient(apiKey).chat(nextMessages, options);
+      if (chatRunRef.current !== runId) return;
+      setMessages([...nextMessages, { role: "assistant", content: response }]);
       setStatus("idle");
     } catch (err: unknown) {
+      if (chatRunRef.current !== runId) return;
       console.error("[ChatSection] Error sending message:", err);
+      setError(err instanceof Error && err.message ? err.message : copy.chat.unknownError);
       setStatus("error");
-      setError(err instanceof Error ? err.message : "Errore sconosciuto");
     }
   };
 
-  const handleClear = useCallback(() => {
-    setMessages([]);
+  const handleClear = () => {
+    chatRunRef.current += 1;
+    setMessages(initialContext ? [contextMessage()] : []);
     setInputValue("");
     setError("");
     setStatus("idle");
     inputRef.current?.focus();
-  }, []);
+  };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
       void handleSend();
     }
   };
 
-  const hasContext = messages.some((m) => m.role === "system");
+  const visibleMessages = messages.filter((message) => message.role !== "system");
+  const hasContext = messages.some((message) => message.role === "system");
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-[var(--md-sys-color-surface-container)] rounded-[30px] shadow-[0_8px_24px_rgba(27,34,57,0.10)] border border-[color:var(--md-sys-color-outline)]/30 overflow-hidden">
-        {/* Header */}
-        <div className="bg-[var(--md-sys-color-surface-container-high)] px-6 py-4 border-b border-[color:var(--md-sys-color-outline)]/30 flex justify-between items-center">
-          <h3 className="font-bold text-[var(--md-sys-color-on-surface)] flex items-center gap-2">
-            <MessageSquare className="w-5 h-5" />
-            Chat with Mistral
-          </h3>
+    <div className="space-y-8">
+      <header className="max-w-3xl">
+        <p className="text-sm font-extrabold uppercase tracking-[0.16em] text-primary">Mistral AI</p>
+        <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-on-surface sm:text-4xl">
+          {copy.chat.title}
+        </h1>
+        <p className="mt-3 text-base leading-7 text-on-surface-variant">{copy.chat.subtitle}</p>
+      </header>
+
+      {hasContext && (
+        <div className="flex items-start gap-3 rounded-[var(--sf-shape-lg)] bg-tertiary-container px-5 py-4 text-on-tertiary-container">
+          <FileText className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+          <div>
+            <p className="font-extrabold">{copy.chat.contextAttached}</p>
+            <p className="mt-1 text-sm opacity-80">{copy.chat.contextHint}</p>
+          </div>
+        </div>
+      )}
+
+      <Card variant="elevated" className="overflow-hidden">
+        <div className="flex items-center justify-between gap-4 border-b border-outline-variant bg-surface-container-high px-5 py-4 sm:px-7">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-[var(--sf-shape-md)] bg-secondary-container text-on-secondary-container">
+              <MessageSquare className="size-5" aria-hidden="true" />
+            </span>
+            <h2 className="font-extrabold text-on-surface">{copy.chat.title}</h2>
+          </div>
+          <Button
+            size="sm"
+            variant="text"
+            leadingIcon={Trash2}
+            onClick={handleClear}
+            disabled={!visibleMessages.length && !inputValue}
+          >
+            {copy.chat.clear}
+          </Button>
         </div>
 
-        {/* Messages Area */}
-        <div className="p-6 max-h-[60vh] md:max-h-[70vh] overflow-y-auto">
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <MessageSquare className="w-12 h-12 text-[var(--md-sys-color-on-surface-variant)] opacity-50 mb-4" />
-              <p className="text-[var(--md-sys-color-on-surface-variant)] text-sm">
-                {hasContext 
-                  ? "Il transcript è stato caricato come contesto. Scrivi una domanda per iniziare."
-                  : "Inizia una conversazione con Mistral AI."}
+        <div className="min-h-80 max-h-[55vh] overflow-y-auto p-5 sm:p-7" aria-live="polite">
+          {visibleMessages.length === 0 && status !== "thinking" ? (
+            <div className="flex min-h-64 flex-col items-center justify-center px-5 text-center text-on-surface-variant">
+              <MessageSquare className="size-10 opacity-50" aria-hidden="true" />
+              <p className="mt-4 max-w-md text-sm">
+                {hasContext ? copy.chat.contextHint : copy.chat.empty}
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {messages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={cn(
-                    "flex gap-3 p-4 rounded-2xl",
-                    msg.role === "system"
-                      ? "bg-[var(--md-sys-color-surface-container-highest)] border border-[color:var(--md-sys-color-outline)]/20"
-                      : msg.role === "user"
-                        ? "bg-[var(--md-sys-color-primary-container)]/20"
-                        : "bg-[var(--md-sys-color-surface-container-high)]"
-                  )}
-                >
-                  <div className="flex-shrink-0">
-                    {msg.role === "user" && (
-                      <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-primary)] flex items-center justify-center">
-                        <span className="text-[var(--md-sys-color-on-primary)] text-xs font-bold">U</span>
-                      </div>
-                    )}
-                    {msg.role === "assistant" && (
-                      <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-secondary-container)] flex items-center justify-center">
-                        <span className="text-[var(--md-sys-color-on-secondary-container)] text-xs font-bold">M</span>
-                      </div>
-                    )}
-                    {msg.role === "system" && (
-                      <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-tertiary-container)] flex items-center justify-center">
-                        <span className="text-[var(--md-sys-color-on-tertiary-container)] text-xs font-bold">C</span>
-                      </div>
-                    )}
+            <div className="space-y-5">
+              {visibleMessages.map((message, index) => {
+                const isUser = message.role === "user";
+                return (
+                  <div
+                    key={`${message.role}-${index}`}
+                    className={cn("flex gap-3", isUser && "flex-row-reverse")}
+                  >
+                    <span
+                      className={cn(
+                        "flex size-9 shrink-0 items-center justify-center rounded-[var(--sf-shape-full)] text-xs font-extrabold",
+                        isUser
+                          ? "bg-primary text-on-primary"
+                          : "bg-secondary-container text-on-secondary-container",
+                      )}
+                      aria-hidden="true"
+                    >
+                      {isUser ? copy.chat.userLabel.slice(0, 1) : "M"}
+                    </span>
+                    <div className={cn("max-w-[82%]", isUser && "text-right")}>
+                      <p className="mb-1 text-xs font-bold text-on-surface-variant">
+                        {isUser ? copy.chat.userLabel : copy.chat.assistantLabel}
+                      </p>
+                      <p
+                        className={cn(
+                          "whitespace-pre-wrap break-words rounded-[var(--sf-shape-lg)] px-4 py-3 text-left text-sm leading-6",
+                          isUser
+                            ? "rounded-tr-[var(--sf-shape-xs)] bg-primary-container text-on-primary-container"
+                            : "rounded-tl-[var(--sf-shape-xs)] bg-surface-container-high text-on-surface",
+                        )}
+                      >
+                        {message.content}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1 whitespace-pre-wrap break-words">
-                    <p className={cn(
-                      "text-sm",
-                      msg.role === "system" && "text-[var(--md-sys-color-on-surface-variant)] italic"
-                    )}>
-                      {msg.content}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
+
               {status === "thinking" && (
-                <div className="flex gap-3 p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)]">
-                  <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-secondary-container)] flex items-center justify-center">
-                    <Loader2 className="w-4 h-4 animate-spin text-[var(--md-sys-color-on-secondary-container)]" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-[var(--md-sys-color-on-surface-variant)]">
-                      Thinking...
-                    </p>
-                  </div>
+                <div className="flex items-center gap-3 text-sm text-on-surface-variant">
+                  <span className="flex size-9 items-center justify-center rounded-[var(--sf-shape-full)] bg-secondary-container text-on-secondary-container">
+                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                  </span>
+                  {copy.chat.thinking}
                 </div>
               )}
               <div ref={messagesEndRef} />
@@ -170,53 +196,42 @@ export function ChatSection({ apiKey, initialContext, onDirtyChange }: ChatSecti
           )}
         </div>
 
-        {/* Error */}
         {error && (
-          <div className="px-6 pb-4">
-            <div className="bg-[var(--md-sys-color-error-container)] text-[var(--md-sys-color-on-error-container)] p-3 rounded-xl border border-red-300/40 flex items-center gap-2 text-sm">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <div className="px-5 pb-4 sm:px-7">
+            <div role="alert" className="flex items-start gap-2 rounded-[var(--sf-shape-md)] bg-error-container px-4 py-3 text-sm text-on-error-container">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               <span>{error}</span>
             </div>
           </div>
         )}
 
-        {/* Input Area */}
-        <div className="bg-[var(--md-sys-color-surface-container-high)] px-6 py-4 border-t border-[color:var(--md-sys-color-outline)]/30">
-          <div className="flex gap-2 items-end">
+        <div className="border-t border-outline-variant bg-surface-container-high p-4 sm:px-7 sm:py-5">
+          <div className="flex items-end gap-2 rounded-[var(--sf-shape-lg)] border border-outline-variant bg-surface p-2 focus-within:border-primary">
             <textarea
               ref={inputRef}
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(event) => setInputValue(event.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={hasContext ? "Chiedi qualcosa sul transcript..." : "Scrivi un messaggio..."}
+              placeholder={hasContext ? copy.chat.placeholderWithContext : copy.chat.placeholder}
               disabled={status === "thinking" || !apiKey}
-              className="flex-1 p-3 rounded-2xl border border-[color:var(--md-sys-color-outline)]/40 bg-[var(--md-sys-color-surface)] text-[var(--md-sys-color-on-surface)] placeholder:text-[var(--md-sys-color-on-surface-variant)] resize-none max-h-[120px] min-h-[44px] focus:ring-2 focus:ring-[var(--md-sys-color-primary)]/50 outline-none disabled:opacity-50"
               rows={1}
+              className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-3 py-2.5 text-on-surface outline-none placeholder:text-on-surface-variant/70 disabled:opacity-50"
             />
-            <button
+            <IconButton
+              variant="filled"
+              aria-label={copy.chat.send}
               onClick={() => void handleSend()}
               disabled={!inputValue.trim() || status === "thinking" || !apiKey}
-              className="shrink-0 w-12 h-12 rounded-2xl bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] flex items-center justify-center hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {status === "thinking" ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="size-5 animate-spin" />
               ) : (
-                <Send className="w-5 h-5" />
+                <Send className="size-5" />
               )}
-            </button>
-          </div>
-          <div className="flex justify-between items-center mt-2">
-            <button
-              onClick={handleClear}
-              disabled={messages.length === 0}
-              className="flex items-center gap-1.5 text-sm text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-              Clear chat
-            </button>
+            </IconButton>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

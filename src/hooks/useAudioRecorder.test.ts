@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  formatRecordingTime,
   getRecordingFileExtension,
   shouldUseNativeRecorder,
 } from "./useAudioRecorder";
@@ -16,5 +17,10 @@ describe("useAudioRecorder path selection", () => {
     expect(getRecordingFileExtension("audio/webm;codecs=opus")).toBe("webm");
     expect(getRecordingFileExtension("audio/ogg;codecs=opus")).toBe("ogg");
     expect(getRecordingFileExtension("audio/mp4")).toBe("mp4");
+  });
+
+  test("formats a shared elapsed timer for both recording paths", () => {
+    expect(formatRecordingTime(0)).toBe("00:00");
+    expect(formatRecordingTime(65)).toBe("01:05");
   });
 });

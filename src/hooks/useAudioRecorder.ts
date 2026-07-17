@@ -5,6 +5,7 @@ import {
   formatMicrophoneAccessError,
   formatNativeMicrophoneError,
 } from "../constants/messages";
+import { useLocale } from "../context/LocaleContext";
 import type { Status } from "../types";
 import { isTauriRuntime } from "../utils/platform";
 
@@ -31,6 +32,12 @@ export function getRecordingFileExtension(mimeType: string): string {
   if (mimeType.includes("ogg")) return "ogg";
   if (mimeType.includes("mp4")) return "mp4";
   return "webm";
+}
+
+export function formatRecordingTime(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.max(0, totalSeconds % 60);
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function getErrorProperty(err: unknown, property: "name" | "message") {
@@ -86,13 +93,36 @@ export function useAudioRecorder({
   setError,
   processAudio,
 }: UseAudioRecorderOptions) {
+  const { copy } = useLocale();
   const [tauriEnv, setTauriEnv] = useState(() => isTauriRuntime());
   const [linuxEnv, setLinuxEnv] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaMimeTypeRef = useRef("audio/webm");
   const chunksRef = useRef<Blob[]>([]);
   const processAudioRef = useRef(processAudio);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingStartedAtRef = useRef(0);
+  const discardRecordingRef = useRef(false);
+
+  const stopRecordingTimer = useCallback(() => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  }, []);
+
+  const startRecordingTimer = useCallback(() => {
+    stopRecordingTimer();
+    recordingStartedAtRef.current = Date.now();
+    setElapsedSeconds(0);
+    recordingTimerRef.current = setInterval(() => {
+      setElapsedSeconds(
+        Math.floor((Date.now() - recordingStartedAtRef.current) / 1000),
+      );
+    }, 250);
+  }, [stopRecordingTimer]);
 
   useEffect(() => {
     processAudioRef.current = processAudio;
@@ -104,6 +134,9 @@ export function useAudioRecorder({
   }, []);
 
   const cleanupRecording = useCallback(() => {
+    discardRecordingRef.current = true;
+    stopRecordingTimer();
+    setElapsedSeconds(0);
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     mediaStreamRef.current = null;
 
@@ -123,16 +156,18 @@ export function useAudioRecorder({
         // Ignore cleanup errors.
       });
     }
-  }, []);
+  }, [stopRecordingTimer]);
 
   useEffect(() => cleanupRecording, [cleanupRecording]);
 
   const startRecording = useCallback(async () => {
+    discardRecordingRef.current = false;
     if (shouldUseNativeRecorder(tauriEnv, linuxEnv)) {
       try {
         setError("");
         await invoke("start_native_recording");
         setStatus("recording");
+        startRecordingTimer();
       } catch (err: unknown) {
         console.error("[useAudioRecorder] Error starting native recording:", err);
         setError(formatNativeMicrophoneError(getErrorDetails(err)));
@@ -181,6 +216,11 @@ export function useAudioRecorder({
         if (event.data.size > 0) chunksRef.current.push(event.data);
       };
       mediaRecorder.onstop = async () => {
+        stopRecordingTimer();
+        if (discardRecordingRef.current) {
+          chunksRef.current = [];
+          return;
+        }
         const mimeType = mediaMimeTypeRef.current;
         const extension = getRecordingFileExtension(mimeType);
         const file = new File(
@@ -195,6 +235,7 @@ export function useAudioRecorder({
 
       mediaRecorder.start();
       setStatus("recording");
+      startRecordingTimer();
     } catch (err: unknown) {
       console.error("[useAudioRecorder] Error starting recording:", err);
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -202,15 +243,16 @@ export function useAudioRecorder({
       setError(getRecordingErrorMessage(err, { tauriEnv, linuxEnv }));
       setStatus("error");
     }
-  }, [linuxEnv, setError, setStatus, tauriEnv]);
+  }, [linuxEnv, setError, setStatus, startRecordingTimer, stopRecordingTimer, tauriEnv]);
 
   const stopRecording = useCallback(async () => {
     if (status !== "recording") return;
+    stopRecordingTimer();
 
     if (shouldUseNativeRecorder(tauriEnv, linuxEnv)) {
       try {
         setStatus("processing");
-        setProgress("Finalizing native recording...");
+        setProgress(copy.transcribe.finalizing);
         const audioBytes = await invoke<number[]>("stop_native_recording");
         const file = new File(
           [Uint8Array.from(audioBytes)],
@@ -228,7 +270,22 @@ export function useAudioRecorder({
     }
 
     mediaRecorderRef.current?.stop();
-  }, [linuxEnv, setError, setProgress, setStatus, status, tauriEnv]);
+  }, [
+    copy.transcribe.finalizing,
+    linuxEnv,
+    setError,
+    setProgress,
+    setStatus,
+    status,
+    stopRecordingTimer,
+    tauriEnv,
+  ]);
 
-  return { tauriEnv, startRecording, stopRecording, cleanupRecording };
+  return {
+    tauriEnv,
+    elapsedSeconds,
+    startRecording,
+    stopRecording,
+    cleanupRecording,
+  };
 }

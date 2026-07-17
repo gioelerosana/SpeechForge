@@ -1,83 +1,108 @@
-import { useState, useEffect } from "react";
-import { Minus, Square, X, Copy } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Copy, Minus, Square, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useLocale } from "../context/LocaleContext";
+import { isTauriRuntime } from "../utils/platform";
 
 export function TitleBar() {
-  const [isTauri, setIsTauri] = useState(false);
+  const { copy } = useLocale();
   const [isMaximized, setIsMaximized] = useState(false);
+  const isTauri = isTauriRuntime();
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
-      setIsTauri(true);
-
-      const win = getCurrentWindow();
-      const checkMaximized = async () => {
-        try {
-          setIsMaximized(await win.isMaximized());
-        } catch (e) {
-          console.error("Maximized check failed", e);
-        }
-      };
-
-      checkMaximized();
-
-      // Add listener for resize/maximize changes if possible,
-      // otherwise rely on click handlers to update state optimistically
+  const refreshMaximized = useCallback(async () => {
+    try {
+      setIsMaximized(await getCurrentWindow().isMaximized());
+    } catch (err: unknown) {
+      console.error("[TitleBar] Error reading maximized state:", err);
     }
   }, []);
 
+  useEffect(() => {
+    if (!isTauri) return;
+    void refreshMaximized();
+    const unlistenPromise = getCurrentWindow().onResized(() => {
+      void refreshMaximized();
+    });
+    return () => {
+      void unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, [isTauri, refreshMaximized]);
+
   if (!isTauri) return null;
 
-  const handleMinimize = () => getCurrentWindow().minimize();
-
-  const handleMaximize = async () => {
-    const win = getCurrentWindow();
-    await win.toggleMaximize();
-    setIsMaximized(await win.isMaximized());
+  const handleMinimize = async () => {
+    try {
+      await getCurrentWindow().minimize();
+    } catch (err: unknown) {
+      console.error("[TitleBar] Error minimizing window:", err);
+    }
   };
 
-  const handleClose = () => getCurrentWindow().close();
+  const handleMaximize = async () => {
+    try {
+      await getCurrentWindow().toggleMaximize();
+      await refreshMaximized();
+    } catch (err: unknown) {
+      console.error("[TitleBar] Error toggling maximized state:", err);
+    }
+  };
 
-  // Drag handler using the explicit API method which is more reliable on Linux than the data attribute sometimes
-  const startDrag = () => {
-    getCurrentWindow().startDragging();
+  const handleClose = async () => {
+    try {
+      await getCurrentWindow().close();
+    } catch (err: unknown) {
+      console.error("[TitleBar] Error closing window:", err);
+    }
+  };
+
+  const startDrag = async () => {
+    try {
+      await getCurrentWindow().startDragging();
+    } catch (err: unknown) {
+      console.error("[TitleBar] Error starting window drag:", err);
+    }
   };
 
   return (
-    <div
-      className="fixed top-0 left-0 right-0 h-8 bg-[var(--md-sys-color-surface)] border-b border-[color:var(--md-sys-color-outline)]/10 flex justify-between items-center z-50 select-none"
-      onMouseDown={startDrag} // Explicit drag handler
-    >
-      {/* Title Area */}
-      <div className="flex items-center px-4 h-full flex-1 gap-2 pointer-events-none">
-        <span className="text-sm font-medium text-[var(--md-sys-color-on-surface-variant)]">
-          SpeechForge
-        </span>
+    <div className="fixed inset-x-0 top-0 z-50 flex h-8 select-none items-center border-b border-outline-variant bg-surface-container-low text-on-surface-variant">
+      <div
+        data-tauri-drag-region
+        className="flex h-full flex-1 items-center px-4"
+        onMouseDown={(event) => {
+          if (event.button === 0) void startDrag();
+        }}
+        onDoubleClick={() => void handleMaximize()}
+      >
+        <span className="pointer-events-none text-xs font-bold tracking-wide">SpeechForge</span>
       </div>
-
-      {/* Window Controls - stopPropagation prevents drag from triggering on buttons */}
-      <div className="flex h-full" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="flex h-full" onMouseDown={(event) => event.stopPropagation()}>
         <button
-          onClick={handleMinimize}
-          className="h-full w-11 flex items-center justify-center hover:bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)] transition-colors focus:outline-none cursor-default"
+          type="button"
+          aria-label={copy.window.minimize}
+          onClick={() => void handleMinimize()}
+          className="flex h-full w-11 items-center justify-center transition-colors hover:bg-surface-container-highest focus-visible:z-10"
         >
-          <Minus size={18} />
+          <Minus className="size-4" aria-hidden="true" />
         </button>
         <button
-          onClick={handleMaximize}
-          className="h-full w-11 flex items-center justify-center hover:bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)] transition-colors focus:outline-none cursor-default"
+          type="button"
+          aria-label={isMaximized ? copy.window.restore : copy.window.maximize}
+          onClick={() => void handleMaximize()}
+          className="flex h-full w-11 items-center justify-center transition-colors hover:bg-surface-container-highest focus-visible:z-10"
         >
           {isMaximized ? (
-            <Copy size={16} className="rotate-180" />
+            <Copy className="size-3.5 rotate-180" aria-hidden="true" />
           ) : (
-            <Square size={16} />
+            <Square className="size-3.5" aria-hidden="true" />
           )}
         </button>
         <button
-          onClick={handleClose}
-          className="h-full w-11 flex items-center justify-center hover:bg-red-500 hover:text-white text-[var(--md-sys-color-on-surface-variant)] transition-colors focus:outline-none cursor-default"
+          type="button"
+          aria-label={copy.window.close}
+          onClick={() => void handleClose()}
+          className="flex h-full w-11 items-center justify-center transition-colors hover:bg-error hover:text-on-error focus-visible:z-10"
         >
-          <X size={18} />
+          <X className="size-4" aria-hidden="true" />
         </button>
       </div>
     </div>

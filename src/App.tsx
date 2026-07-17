@@ -78,7 +78,7 @@ export default function App() {
     processAudio: transcription.processAudio,
   });
   const { cleanupRecording } = recorder;
-  const { setStatus, setTranscription } = transcription;
+  const { cancelProcessing, setStatus, setTranscription } = transcription;
 
   const sessionDirty =
     transcription.status !== "idle" ||
@@ -87,6 +87,8 @@ export default function App() {
     chatDirty;
 
   const handleConfirmedReset = useCallback(() => {
+    cancelProcessing();
+    cleanupRecording();
     setActiveTab("transcribe");
     setStatus("idle");
     setTranscription("");
@@ -96,8 +98,7 @@ export default function App() {
     setChatDirty(false);
     setSessionGeneration((generation) => generation + 1);
     setShowResetConfirmation(false);
-    cleanupRecording();
-  }, [cleanupRecording, setStatus, setTranscription]);
+  }, [cancelProcessing, cleanupRecording, setStatus, setTranscription]);
 
   const handleRequestHome = useCallback(() => {
     if (sessionDirty) {
@@ -204,7 +205,6 @@ export default function App() {
         <section hidden={activeTab !== "transcribe"}>
           {settings.isApiKeyVerified ? (
             <TranscribeSection
-              apiKey={settings.apiKey}
               status={transcription.status}
               setStatus={transcription.setStatus}
               progress={transcription.progress}
@@ -214,6 +214,7 @@ export default function App() {
               processAudio={transcription.processAudio}
               startRecording={recorder.startRecording}
               stopRecording={recorder.stopRecording}
+              elapsedSeconds={recorder.elapsedSeconds}
               deepLKeyConfigured={settings.isDeepLKeyVerified}
               onResetTranslation={() => setTranslationInitialText("")}
               onTranslateResult={handleTranslateResult}
@@ -274,7 +275,7 @@ export default function App() {
       </main>
 
       <footer className="hidden w-full py-6 text-center text-sm text-on-surface-variant/70 md:block">
-        Version {pkg.version} · © 2026 JoeShep
+        {copy.footer.version} {pkg.version} · © {new Date().getFullYear()} JoeShep · {copy.footer.copyright}
       </footer>
 
       <BottomNavigation activeTab={activeTab} onTabChange={setActiveTab} />

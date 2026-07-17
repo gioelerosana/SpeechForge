@@ -18,7 +18,7 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
 
   return (
     <nav
-      aria-label="Primary navigation"
+      aria-label={copy.nav.primary}
       className="fixed inset-x-0 bottom-0 z-50 border-t border-outline-variant bg-surface-container/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-6px_22px_rgba(0,79,79,0.12)] backdrop-blur-xl md:hidden"
     >
       <div className="mx-auto grid max-w-md grid-cols-3 gap-1">
