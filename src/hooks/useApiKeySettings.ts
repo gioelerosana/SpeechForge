@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   DeepLClient,
   type DeepLPlan,
@@ -6,9 +6,34 @@ import {
 } from "../services/deepl/deepLClient";
 import { MistralClient } from "../services/mistral/MistralClient";
 
+export interface SettingsDraft {
+  apiKey: string;
+  deepLApiKey: string;
+  deepLPlan: DeepLPlan;
+  deepLDefaultTargetLang: string;
+}
+
+export interface SettingsValidationErrors {
+  mistral?: string;
+  deepL?: string;
+}
+
 interface UseApiKeySettingsOptions {
-  onError: (message: string) => void;
-  onOpenSettings: () => void;
+  validateMistral?: (key: string) => Promise<void>;
+  validateDeepL?: (key: string, plan: DeepLPlan) => Promise<DeepLUsage>;
+}
+
+const STORAGE = {
+  mistralKey: "mistral_api_key",
+  mistralVerified: "mistral_api_key_verified",
+  deepLKey: "deepl_api_key",
+  deepLVerified: "deepl_api_key_verified",
+  deepLPlan: "deepl_plan",
+  deepLTarget: "deepl_default_target_lang",
+} as const;
+
+function readPlan(): DeepLPlan {
+  return localStorage.getItem(STORAGE.deepLPlan) === "pro" ? "pro" : "free";
 }
 
 function sanitizeApiKey(value: string): string {
@@ -21,172 +46,153 @@ function sanitizeApiKey(value: string): string {
       text = value.replace(/<[^>]*>/g, "");
     }
   }
-
   return text.replace(/[^A-Za-z0-9\-_:.]/g, "").trim();
 }
 
-export function useApiKeySettings({
-  onError,
-  onOpenSettings,
-}: UseApiKeySettingsOptions) {
-  const [apiKey, setApiKey] = useState("");
-  const [isApiKeyVerified, setIsApiKeyVerified] = useState(false);
-  const [isSavingApiKey, setIsSavingApiKey] = useState(false);
-  const [deepLApiKey, setDeepLApiKey] = useState("");
-  const [deepLPlan, setDeepLPlan] = useState<DeepLPlan>("free");
-  const [deepLDefaultTargetLang, setDeepLDefaultTargetLang] =
-    useState("EN-US");
-  const [isDeepLKeyVerified, setIsDeepLKeyVerified] = useState(false);
-  const [isTestingDeepL, setIsTestingDeepL] = useState(false);
+function readInitialDraft(): SettingsDraft {
+  return {
+    apiKey: localStorage.getItem(STORAGE.mistralKey) ?? "",
+    deepLApiKey: localStorage.getItem(STORAGE.deepLKey) ?? "",
+    deepLPlan: readPlan(),
+    deepLDefaultTargetLang:
+      localStorage.getItem(STORAGE.deepLTarget) ?? "EN-US",
+  };
+}
+
+export function useApiKeySettings(options: UseApiKeySettingsOptions = {}) {
+  const initial = readInitialDraft();
+  const [apiKey, setApiKey] = useState(initial.apiKey);
+  const [deepLApiKey, setDeepLApiKey] = useState(initial.deepLApiKey);
+  const [deepLPlan, setDeepLPlan] = useState<DeepLPlan>(initial.deepLPlan);
+  const [deepLDefaultTargetLang, setDeepLDefaultTargetLang] = useState(
+    initial.deepLDefaultTargetLang,
+  );
+  const [isApiKeyVerified, setIsApiKeyVerified] = useState(
+    () => localStorage.getItem(STORAGE.mistralVerified) === "true",
+  );
+  const [isDeepLKeyVerified, setIsDeepLKeyVerified] = useState(
+    () => localStorage.getItem(STORAGE.deepLVerified) === "true",
+  );
   const [deepLUsage, setDeepLUsage] = useState<DeepLUsage | null>(null);
-  const [deepLTestError, setDeepLTestError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [validationErrors, setValidationErrors] =
+    useState<SettingsValidationErrors>({});
 
-  useEffect(() => {
-    const storedMistralKey = localStorage.getItem("mistral_api_key");
-    if (storedMistralKey) {
-      setApiKey(storedMistralKey);
-      setIsApiKeyVerified(
-        localStorage.getItem("mistral_api_key_verified") === "true",
-      );
-    }
-
-    const storedDeepLKey = localStorage.getItem("deepl_api_key");
-    if (storedDeepLKey) {
-      setDeepLApiKey(storedDeepLKey);
-      setIsDeepLKeyVerified(
-        localStorage.getItem("deepl_api_key_verified") === "true",
-      );
-    }
-
-    setDeepLPlan(
-      (localStorage.getItem("deepl_plan") as DeepLPlan | null) ?? "free",
-    );
-    setDeepLDefaultTargetLang(
-      localStorage.getItem("deepl_default_target_lang") ?? "EN-US",
-    );
-  }, []);
-
-  const saveSettings = useCallback(async () => {
-    const trimmedApiKey = apiKey.trim();
-    if (!trimmedApiKey) {
-      onError("Please enter a Mistral API Key before saving.");
-      return;
-    }
-
-    try {
-      onError("");
-      setIsSavingApiKey(true);
-      const client = new MistralClient(trimmedApiKey);
-      await client.validateApiKey();
-
-      localStorage.setItem("mistral_api_key", trimmedApiKey);
-      localStorage.setItem("mistral_api_key_verified", "true");
-      setApiKey(trimmedApiKey);
-      setIsApiKeyVerified(true);
-    } catch (err: unknown) {
-      console.error("[useApiKeySettings] API key validation failed:", err);
-      localStorage.removeItem("mistral_api_key_verified");
-      setIsApiKeyVerified(false);
-      onError("Invalid API Key. Please check it and try again.");
-      onOpenSettings();
-    } finally {
-      setIsSavingApiKey(false);
-    }
-  }, [apiKey, onError, onOpenSettings]);
-
-  const handleApiKeyChange = useCallback(
-    (value: string) => {
-      setApiKey(sanitizeApiKey(value));
-      if (isApiKeyVerified) {
-        setIsApiKeyVerified(false);
-        localStorage.removeItem("mistral_api_key_verified");
-      }
-    },
-    [isApiKeyVerified],
+  const createDraft = useCallback(
+    (): SettingsDraft => ({
+      apiKey,
+      deepLApiKey,
+      deepLPlan,
+      deepLDefaultTargetLang,
+    }),
+    [apiKey, deepLApiKey, deepLDefaultTargetLang, deepLPlan],
   );
 
-  const handleDeepLKeyChange = useCallback(
-    (value: string) => {
-      setDeepLApiKey(sanitizeApiKey(value));
-      if (isDeepLKeyVerified) {
-        setIsDeepLKeyVerified(false);
-        localStorage.removeItem("deepl_api_key_verified");
+  const saveAllSettings = useCallback(
+    async (draft: SettingsDraft): Promise<boolean> => {
+      const next: SettingsDraft = {
+        ...draft,
+        apiKey: sanitizeApiKey(draft.apiKey),
+        deepLApiKey: sanitizeApiKey(draft.deepLApiKey),
+      };
+      setIsSaving(true);
+      setValidationErrors({});
+
+      const validateMistral =
+        options.validateMistral ??
+        ((key: string) => new MistralClient(key).validateApiKey());
+      const validateDeepL =
+        options.validateDeepL ??
+        ((key: string, plan: DeepLPlan) =>
+          new DeepLClient(key, plan).getUsage());
+
+      const [mistralResult, deepLResult] = await Promise.allSettled([
+        next.apiKey
+          ? Promise.resolve().then(() => validateMistral(next.apiKey))
+          : Promise.resolve(),
+        next.deepLApiKey
+          ? Promise.resolve().then(() =>
+              validateDeepL(next.deepLApiKey, next.deepLPlan),
+            )
+          : Promise.resolve(null),
+      ]);
+
+      const errors: SettingsValidationErrors = {};
+      if (mistralResult.status === "rejected") {
+        errors.mistral =
+          mistralResult.reason instanceof Error
+            ? mistralResult.reason.message
+            : "Mistral validation failed.";
       }
-      setDeepLTestError("");
-    },
-    [isDeepLKeyVerified],
-  );
+      if (deepLResult.status === "rejected") {
+        errors.deepL =
+          deepLResult.reason instanceof Error
+            ? deepLResult.reason.message
+            : "DeepL validation failed.";
+      }
 
-  const testDeepLConnection = useCallback(async () => {
-    const trimmedKey = deepLApiKey.trim();
-    if (!trimmedKey) {
-      setDeepLTestError("Please enter a DeepL API key.");
-      return;
-    }
+      if (errors.mistral || errors.deepL) {
+        setValidationErrors(errors);
+        setIsSaving(false);
+        return false;
+      }
 
-    setDeepLTestError("");
-    setIsTestingDeepL(true);
-    setDeepLUsage(null);
+      if (next.apiKey) {
+        localStorage.setItem(STORAGE.mistralKey, next.apiKey);
+        localStorage.setItem(STORAGE.mistralVerified, "true");
+      } else {
+        localStorage.removeItem(STORAGE.mistralKey);
+        localStorage.removeItem(STORAGE.mistralVerified);
+      }
 
-    try {
-      const client = new DeepLClient(trimmedKey, deepLPlan);
-      const usage = await client.getUsage();
-      setDeepLUsage(usage);
-      setIsDeepLKeyVerified(true);
-      localStorage.setItem("deepl_api_key", trimmedKey);
-      localStorage.setItem("deepl_plan", deepLPlan);
+      if (next.deepLApiKey) {
+        localStorage.setItem(STORAGE.deepLKey, next.deepLApiKey);
+        localStorage.setItem(STORAGE.deepLVerified, "true");
+      } else {
+        localStorage.removeItem(STORAGE.deepLKey);
+        localStorage.removeItem(STORAGE.deepLVerified);
+      }
+      localStorage.setItem(STORAGE.deepLPlan, next.deepLPlan);
       localStorage.setItem(
-        "deepl_default_target_lang",
-        deepLDefaultTargetLang,
+        STORAGE.deepLTarget,
+        next.deepLDefaultTargetLang,
       );
-      localStorage.setItem("deepl_api_key_verified", "true");
-      setDeepLApiKey(trimmedKey);
-    } catch (err: unknown) {
-      console.error("[useApiKeySettings] DeepL connection test failed:", err);
-      localStorage.removeItem("deepl_api_key_verified");
-      setIsDeepLKeyVerified(false);
-      setDeepLTestError(
-        err instanceof Error ? err.message : "Connection test failed.",
+
+      setApiKey(next.apiKey);
+      setDeepLApiKey(next.deepLApiKey);
+      setDeepLPlan(next.deepLPlan);
+      setDeepLDefaultTargetLang(next.deepLDefaultTargetLang);
+      setIsApiKeyVerified(Boolean(next.apiKey));
+      setIsDeepLKeyVerified(Boolean(next.deepLApiKey));
+      setDeepLUsage(
+        deepLResult.status === "fulfilled" ? deepLResult.value : null,
       );
-    } finally {
-      setIsTestingDeepL(false);
-    }
-  }, [deepLApiKey, deepLDefaultTargetLang, deepLPlan]);
-
-  const handleDeepLPlanChange = useCallback((plan: DeepLPlan) => {
-    setDeepLPlan(plan);
-    setIsDeepLKeyVerified(false);
-    setDeepLUsage(null);
-    localStorage.removeItem("deepl_api_key_verified");
-  }, []);
-
-  const handleDeepLDefaultTargetLangChange = useCallback((language: string) => {
-    setDeepLDefaultTargetLang(language);
-    localStorage.setItem("deepl_default_target_lang", language);
-  }, []);
+      setIsSaving(false);
+      return true;
+    },
+    [options.validateDeepL, options.validateMistral],
+  );
 
   const invalidateMistralApiKey = useCallback(() => {
     setIsApiKeyVerified(false);
-    localStorage.removeItem("mistral_api_key_verified");
+    localStorage.removeItem(STORAGE.mistralVerified);
   }, []);
+
+  const clearValidationErrors = useCallback(() => setValidationErrors({}), []);
 
   return {
     apiKey,
     isApiKeyVerified,
-    isSavingApiKey,
     deepLApiKey,
     deepLPlan,
     deepLDefaultTargetLang,
     isDeepLKeyVerified,
-    isTestingDeepL,
     deepLUsage,
-    deepLTestError,
-    saveSettings,
-    handleApiKeyChange,
-    handleDeepLKeyChange,
-    testDeepLConnection,
-    handleDeepLPlanChange,
-    handleDeepLDefaultTargetLangChange,
+    isSaving,
+    validationErrors,
+    createDraft,
+    saveAllSettings,
+    clearValidationErrors,
     invalidateMistralApiKey,
   };
 }

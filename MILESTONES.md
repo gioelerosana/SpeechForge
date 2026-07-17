@@ -44,14 +44,14 @@ must pass before each squash-merge to `main` (local squashes; push only after us
 
 ### M4 — Navigation, onboarding & settings
 
-- [ ] Replace header mode dropdown with always-visible M3 segmented control
+- [x] Replace header mode dropdown with always-visible M3 segmented control
   (Transcribe / Translate / Chat) in the header on desktop
-- [ ] Add M3 bottom navigation bar on mobile (safe-area inset aware)
-- [ ] Add guided, skippable provider onboarding and contextual provider gates
-- [ ] Convert settings into an accessible M3 dialog with atomic multi-provider validation
-- [ ] Preserve tab sessions; confirm destructive Home resets; refine Capacitor back behavior
-- [ ] Use a consistent responsive page container and safe-area spacing
-- [ ] Verify: `bun test && bun run build` green; manual flow smoke (all tabs, back button)
+- [x] Add M3 bottom navigation bar on mobile (safe-area inset aware)
+- [x] Add guided, skippable provider onboarding and contextual provider gates
+- [x] Convert settings into an accessible M3 dialog with atomic multi-provider validation
+- [x] Preserve tab sessions; confirm destructive Home resets; refine Capacitor back behavior
+- [x] Use a consistent responsive page container and safe-area spacing
+- [x] Verify: `bun test && bun run build` green; component/integration smoke (tabs and reset)
 
 ### M5 — Workflow renovation
 

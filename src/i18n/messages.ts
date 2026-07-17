@@ -92,6 +92,8 @@ const en = {
     thinking: "Thinking…",
     send: "Send message",
     clear: "Clear chat",
+    connectTitle: "Connect Mistral to chat",
+    connectBody: "Add and validate a Mistral API key to start an AI conversation.",
     systemContext: (transcript: string) =>
       `Context: the following text is an audio transcript. Answer the user's questions using this transcript:\n\n${transcript}`,
   },
@@ -208,6 +210,8 @@ const it: Messages = {
     thinking: "Sto pensando…",
     send: "Invia messaggio",
     clear: "Cancella chat",
+    connectTitle: "Collega Mistral per usare la chat",
+    connectBody: "Aggiungi e verifica una chiave API Mistral per iniziare una conversazione con l'AI.",
     systemContext: (transcript: string) =>
       `Contesto: il seguente testo è una trascrizione audio. Rispondi alle domande dell'utente usando questa trascrizione:\n\n${transcript}`,
   },

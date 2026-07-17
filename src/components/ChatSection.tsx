@@ -6,9 +6,10 @@ import { MistralClient, type ChatMessage, type ChatOptions } from "../services/m
 interface ChatSectionProps {
   apiKey: string;
   initialContext?: string;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
-export function ChatSection({ apiKey, initialContext }: ChatSectionProps) {
+export function ChatSection({ apiKey, initialContext, onDirtyChange }: ChatSectionProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [status, setStatus] = useState<"idle" | "thinking" | "error">("idle");
@@ -31,6 +32,10 @@ export function ChatSection({ apiKey, initialContext }: ChatSectionProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    onDirtyChange?.(messages.some((message) => message.role !== "system"));
+  }, [messages, onDirtyChange]);
 
   // Focus input all'apertura
   useEffect(() => {

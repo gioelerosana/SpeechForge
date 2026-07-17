@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { App as CapApp } from "@capacitor/app";
-import { ExternalLink } from "lucide-react";
 import { AppHeader } from "./components/AppHeader";
+import { BottomNavigation } from "./components/BottomNavigation";
 import { ChatSection } from "./components/ChatSection";
 import { ErrorBanner } from "./components/ErrorBanner";
+import { OnboardingDialog } from "./components/OnboardingDialog";
+import { ProviderGate } from "./components/ProviderGate";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { TitleBar } from "./components/TitleBar";
 import { TranscribeSection } from "./components/TranscribeSection";
 import { TranslationCard } from "./components/TranslationCard";
+import { Button, Dialog } from "./components/ui";
+import { useLocale } from "./context/LocaleContext";
 import { useTheme } from "./context/ThemeContext";
 import { useApiKeySettings } from "./hooks/useApiKeySettings";
 import { useAudioRecorder } from "./hooks/useAudioRecorder";
@@ -17,20 +21,31 @@ import { cn } from "./utils/cn";
 import { isCapacitorRuntime } from "./utils/platform";
 import pkg from "../package.json";
 
+const ONBOARDING_KEY = "speechforge_onboarding_state";
+
+function shouldOpenOnboarding(): boolean {
+  if (localStorage.getItem(ONBOARDING_KEY)) return false;
+  return (
+    localStorage.getItem("mistral_api_key_verified") !== "true" &&
+    localStorage.getItem("deepl_api_key_verified") !== "true"
+  );
+}
+
 export default function App() {
   const { resolvedTheme, toggleTheme } = useTheme();
+  const { copy } = useLocale();
   const [activeTab, setActiveTab] = useState<ActiveTab>("transcribe");
-  const [showLogoMenu, setShowLogoMenu] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(shouldOpenOnboarding);
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
   const [translationInitialText, setTranslationInitialText] = useState("");
+  const [translationDirty, setTranslationDirty] = useState(false);
+  const [chatDirty, setChatDirty] = useState(false);
+  const [sessionGeneration, setSessionGeneration] = useState(0);
   const [error, setError] = useState("");
   const translationCardRef = useRef<HTMLDivElement | null>(null);
 
-  const openSettings = useCallback(() => setShowSettings(true), []);
-  const settings = useApiKeySettings({
-    onError: setError,
-    onOpenSettings: openSettings,
-  });
+  const settings = useApiKeySettings();
   const { invalidateMistralApiKey } = settings;
 
   const handleMissingApiKey = useCallback(() => {
@@ -65,15 +80,32 @@ export default function App() {
   const { cleanupRecording } = recorder;
   const { setStatus, setTranscription } = transcription;
 
-  const handleGoHome = useCallback(() => {
+  const sessionDirty =
+    transcription.status !== "idle" ||
+    Boolean(transcription.transcription.trim()) ||
+    translationDirty ||
+    chatDirty;
+
+  const handleConfirmedReset = useCallback(() => {
     setActiveTab("transcribe");
     setStatus("idle");
     setTranscription("");
     setError("");
     setTranslationInitialText("");
-    setShowLogoMenu(false);
+    setTranslationDirty(false);
+    setChatDirty(false);
+    setSessionGeneration((generation) => generation + 1);
+    setShowResetConfirmation(false);
     cleanupRecording();
   }, [cleanupRecording, setStatus, setTranscription]);
+
+  const handleRequestHome = useCallback(() => {
+    if (sessionDirty) {
+      setShowResetConfirmation(true);
+    } else {
+      handleConfirmedReset();
+    }
+  }, [handleConfirmedReset, sessionDirty]);
 
   useEffect(() => {
     if (!isCapacitorRuntime()) return;
@@ -89,21 +121,19 @@ export default function App() {
       }
       event.preventDefault();
     };
-
     document.addEventListener("contextmenu", handleContextMenu);
 
-    const backButtonListenerPromise = CapApp.addListener("backButton", () => {
-      if (showSettings) {
+    const listenerPromise = CapApp.addListener("backButton", () => {
+      if (showResetConfirmation) {
+        setShowResetConfirmation(false);
+      } else if (showSettings) {
         setShowSettings(false);
-      } else if (showLogoMenu) {
-        setShowLogoMenu(false);
-      } else if (
-        activeTab === "translate" ||
-        activeTab === "chat" ||
-        transcription.status !== "idle" ||
-        transcription.transcription !== ""
-      ) {
-        handleGoHome();
+      } else if (showOnboarding) {
+        setShowOnboarding(false);
+      } else if (activeTab !== "transcribe") {
+        setActiveTab("transcribe");
+      } else if (sessionDirty) {
+        setShowResetConfirmation(true);
       } else {
         void CapApp.exitApp();
       }
@@ -111,15 +141,14 @@ export default function App() {
 
     return () => {
       document.removeEventListener("contextmenu", handleContextMenu);
-      void backButtonListenerPromise.then((listener) => listener.remove());
+      void listenerPromise.then((listener) => listener.remove());
     };
   }, [
     activeTab,
-    handleGoHome,
-    showLogoMenu,
+    sessionDirty,
+    showOnboarding,
+    showResetConfirmation,
     showSettings,
-    transcription.status,
-    transcription.transcription,
   ]);
 
   const handleTranslateResult = useCallback(() => {
@@ -133,21 +162,30 @@ export default function App() {
     });
   }, [transcription.transcription]);
 
-  const handleChatAboutThis = useCallback(() => {
-    setActiveTab("chat");
-  }, []);
+  const handleSkipOnboarding = () => {
+    localStorage.setItem(ONBOARDING_KEY, "skipped");
+    setShowOnboarding(false);
+  };
 
-  const deepLKeyConfigured = settings.deepLApiKey.trim().length > 0;
+  const handleCompleteOnboarding = () => {
+    localStorage.setItem(ONBOARDING_KEY, "completed");
+    setShowOnboarding(false);
+  };
+
+  const handleRerunSetup = () => {
+    setShowSettings(false);
+    setShowOnboarding(true);
+  };
 
   return (
     <div
       className={cn(
-        "min-h-screen flex flex-col bg-[var(--md-sys-color-surface)] text-[var(--md-sys-color-on-surface)] transition-colors duration-200 relative overflow-x-hidden",
+        "relative flex min-h-screen flex-col overflow-x-hidden bg-surface text-on-surface transition-colors duration-[var(--sf-duration-medium)]",
         recorder.tauriEnv && "pt-8",
       )}
     >
-      <div className="pointer-events-none absolute top-16 -left-10 h-56 w-56 rounded-full bg-[var(--md-sys-color-primary-container)]/20 blur-3xl" />
-      <div className="pointer-events-none absolute top-40 right-0 h-64 w-64 rounded-full bg-[var(--md-sys-color-secondary-container)]/15 blur-3xl" />
+      <div className="pointer-events-none absolute left-[-8rem] top-24 size-80 rounded-full bg-primary-container/28 blur-3xl" />
+      <div className="pointer-events-none absolute right-[-10rem] top-80 size-96 rounded-full bg-tertiary-container/20 blur-3xl" />
       <TitleBar />
 
       <AppHeader
@@ -155,100 +193,126 @@ export default function App() {
         toggleTheme={toggleTheme}
         tauriEnv={recorder.tauriEnv}
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        showLogoMenu={showLogoMenu}
-        setShowLogoMenu={setShowLogoMenu}
-        showSettings={showSettings}
-        setShowSettings={setShowSettings}
-        handleGoHome={handleGoHome}
-        settingsPanel={
-          <SettingsPanel
-            settings={settings}
-            visible={showSettings}
-            onClose={() => setShowSettings(false)}
-          />
-        }
+        onTabChange={setActiveTab}
+        onHome={handleRequestHome}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
-      {!settings.isApiKeyVerified && (
-        <div
-          className={cn(
-            "relative z-[1] mb-6 flex justify-center px-4 sm:px-6",
-            recorder.tauriEnv ? "mt-2" : "-mt-8",
-          )}
-        >
-          <a
-            href="https://console.mistral.ai/api-keys"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-2xl border border-[color:var(--md-sys-color-outline)]/30 bg-[var(--md-sys-color-secondary-container)] px-5 py-3 text-sm font-bold text-[var(--md-sys-color-on-secondary-container)] shadow-[0_10px_24px_rgba(22,27,45,0.16)] hover:-translate-y-0.5 hover:opacity-95 transition-all"
-          >
-            <span>Get your Mistral API Key</span>
-            <ExternalLink className="w-4 h-4" />
-          </a>
-        </div>
-      )}
-
-      <main className="relative flex-1 w-full max-w-4xl mx-auto px-6 pb-6 space-y-8">
+      <main className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pb-28 sm:px-6 md:pb-8 lg:px-8">
         <ErrorBanner message={error} />
 
-        {activeTab === "transcribe" && (
-          <TranscribeSection
-            apiKey={settings.apiKey}
-            status={transcription.status}
-            setStatus={transcription.setStatus}
-            progress={transcription.progress}
-            transcription={transcription.transcription}
-            setTranscription={transcription.setTranscription}
-            setError={setError}
-            processAudio={transcription.processAudio}
-            startRecording={recorder.startRecording}
-            stopRecording={recorder.stopRecording}
-            deepLKeyConfigured={deepLKeyConfigured}
-            onResetTranslation={() => setTranslationInitialText("")}
-            onTranslateResult={handleTranslateResult}
-            onChatAboutThis={handleChatAboutThis}
-          />
-        )}
-
-        {activeTab === "translate" && (
-          <div
-            ref={translationCardRef}
-            className="animate-in fade-in slide-in-from-bottom-4 duration-500"
-          >
-            <TranslationCard
-              apiKey={settings.deepLApiKey}
-              plan={settings.deepLPlan}
-              initialText={translationInitialText}
-              defaultTargetLang={settings.deepLDefaultTargetLang}
-              usage={settings.deepLUsage}
-            />
-          </div>
-        )}
-
-        {activeTab === "chat" && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <ChatSection
+        <section hidden={activeTab !== "transcribe"}>
+          {settings.isApiKeyVerified ? (
+            <TranscribeSection
               apiKey={settings.apiKey}
-              initialContext={transcription.transcription}
+              status={transcription.status}
+              setStatus={transcription.setStatus}
+              progress={transcription.progress}
+              transcription={transcription.transcription}
+              setTranscription={transcription.setTranscription}
+              setError={setError}
+              processAudio={transcription.processAudio}
+              startRecording={recorder.startRecording}
+              stopRecording={recorder.stopRecording}
+              deepLKeyConfigured={settings.isDeepLKeyVerified}
+              onResetTranslation={() => setTranslationInitialText("")}
+              onTranslateResult={handleTranslateResult}
+              onChatAboutThis={() => setActiveTab("chat")}
             />
-          </div>
-        )}
+          ) : (
+            <ProviderGate
+              title={copy.transcribe.connectTitle}
+              description={copy.transcribe.connectBody}
+              onOpenSettings={() => setShowSettings(true)}
+            />
+          )}
+        </section>
+
+        <section hidden={activeTab !== "translate"}>
+          {settings.isDeepLKeyVerified ? (
+            <div
+              ref={translationCardRef}
+              className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+            >
+              <TranslationCard
+                key={"translation-" + sessionGeneration}
+                apiKey={settings.deepLApiKey}
+                plan={settings.deepLPlan}
+                initialText={translationInitialText}
+                defaultTargetLang={settings.deepLDefaultTargetLang}
+                usage={settings.deepLUsage}
+                onDirtyChange={setTranslationDirty}
+              />
+            </div>
+          ) : (
+            <ProviderGate
+              title={copy.translate.connectTitle}
+              description={copy.translate.connectBody}
+              onOpenSettings={() => setShowSettings(true)}
+            />
+          )}
+        </section>
+
+        <section hidden={activeTab !== "chat"}>
+          {settings.isApiKeyVerified ? (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <ChatSection
+                key={"chat-" + sessionGeneration}
+                apiKey={settings.apiKey}
+                initialContext={transcription.transcription}
+                onDirtyChange={setChatDirty}
+              />
+            </div>
+          ) : (
+            <ProviderGate
+              title={copy.chat.connectTitle}
+              description={copy.chat.connectBody}
+              onOpenSettings={() => setShowSettings(true)}
+            />
+          )}
+        </section>
       </main>
 
-      <footer className="w-full py-6 text-center text-sm text-[var(--md-sys-color-on-surface-variant)] opacity-60">
-        <p>
-          Version {pkg.version} • © 2026{" "}
-          <a
-            href="https://jshep.xyz/profile/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline hover:text-[var(--md-sys-color-primary)] transition-colors"
-          >
-            JoeShep
-          </a>
-        </p>
+      <footer className="hidden w-full py-6 text-center text-sm text-on-surface-variant/70 md:block">
+        Version {pkg.version} · © 2026 JoeShep
       </footer>
+
+      <BottomNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+
+      <SettingsPanel
+        settings={settings}
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        onRerunSetup={handleRerunSetup}
+      />
+
+      <OnboardingDialog
+        open={showOnboarding}
+        settings={settings}
+        onComplete={handleCompleteOnboarding}
+        onSkip={handleSkipOnboarding}
+        onClose={() => setShowOnboarding(false)}
+      />
+
+      <Dialog
+        open={showResetConfirmation}
+        onClose={() => setShowResetConfirmation(false)}
+        title={copy.reset.title}
+        description={copy.reset.body}
+        closeLabel={copy.common.close}
+        footer={
+          <>
+            <Button variant="text" onClick={() => setShowResetConfirmation(false)}>
+              {copy.common.cancel}
+            </Button>
+            <Button variant="danger" onClick={handleConfirmedReset}>
+              {copy.reset.confirm}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-on-surface-variant">{copy.reset.body}</p>
+      </Dialog>
     </div>
   );
 }

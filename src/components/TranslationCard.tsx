@@ -111,6 +111,7 @@ interface TranslationCardProps {
   defaultTargetLang?: string;
   usage?: DeepLUsage | null;
   onTranslateComplete?: (translation: string) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -124,6 +125,7 @@ export function TranslationCard({
   defaultTargetLang = "EN-US",
   usage,
   onTranslateComplete,
+  onDirtyChange,
 }: TranslationCardProps) {
   const [sourceText, setSourceText] = useState(initialText);
   const [sourceLang, setSourceLang] = useState("");
@@ -155,6 +157,10 @@ export function TranslationCard({
       setError("");
     }
   }, [initialText]);
+
+  useEffect(() => {
+    onDirtyChange?.(Boolean(sourceText.trim() || translatedText.trim()));
+  }, [onDirtyChange, sourceText, translatedText]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
