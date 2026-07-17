@@ -26,5 +26,11 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
-  }
+  },
+  "exclude": [
+    "android",
+    "dist",
+    "node_modules",
+    "src-tauri/target"
+  ]
 }

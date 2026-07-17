@@ -63,7 +63,8 @@ must pass before each squash-merge to `main` (local squashes; push only after us
 
 ### M6 — Final QA & release proposal
 
-- [ ] Full validation: `bun test && bun run build`; Tauri/Android build smoke
-- [ ] Add `ci-tests.yml` for tests, lint, strict TypeScript, and web build
-- [ ] Update `AGENTS.md`/`README.md` if structure or conventions changed
+- [x] Full validation: web + optimized Tauri compile green; Android sync green
+  (local Gradle smoke unavailable because Java is not installed)
+- [x] Add `ci-tests.yml` for tests, lint, strict TypeScript, and web build
+- [x] Update `AGENTS.md`/`README.md` for the renovated structure and conventions
 - [ ] Propose release v0.7.0 (4-file version sync per AGENTS.md §6.1) — pending user approval

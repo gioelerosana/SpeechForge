@@ -33,6 +33,8 @@ This document serves as the primary instruction set for AI agents and developers
 | **Build (Tauri)** | `bun run build:tauri` | Compiles optimized Tauri binary for Linux.              |
 | **Pkg (Arch)**    | `makepkg -si`         | Builds and installs full Arch Linux package (PKGBUILD). |
 | **Android Sync**  | `bun run cap:sync`    | Builds and syncs assets to Android project.             |
+| **Lint**          | `bun run lint`        | Runs ESLint over TypeScript and React sources.          |
+| **Typecheck**     | `bunx --bun tsc --noEmit` | Runs strict TypeScript validation.                  |
 
 ### Testing
 
@@ -40,6 +42,8 @@ This document serves as the primary instruction set for AI agents and developers
 - **Run All Tests:** `bun test`
 - **Run Single File:** `bun test path/to/file.test.ts`
 - **Watch Mode:** `bun test --watch`
+- **Component Environment:** Happy DOM is registered from `test/register-dom.ts`, then Testing Library matchers/cleanup from `test/setup-testing.ts` via `bunfig.toml`.
+- **Component Tests:** Keep `*.test.tsx` beside the component/context/hook under test. Prefer role- and label-based queries.
 
 ## 3. Code Style & Conventions
 
@@ -49,6 +53,8 @@ This document serves as the primary instruction set for AI agents and developers
 - **Components:** Use Functional Components with named exports.
 - **Hooks:** Prioritize custom hooks for logic reuse. Place in `src/hooks/` if shared.
 - **State:** Use `useState` for local UI state. Use Context for global app state (e.g. auth, settings).
+- **Localization:** All user-facing app copy belongs in the typed message catalog at `src/i18n/messages.ts`. English is the default; Italian must provide the same keys.
+- **Theme:** Use `ThemeContext` and semantic Material color utilities. Do not hard-code alternate light/dark color pairs when a semantic token exists.
 - **Platform Detection:** Use `src/utils/platform.ts` to detect environment (e.g., `isTauriRuntime()`).
 - **Production UX:** Do not add platform/debug notice banners in the main UI unless explicitly requested by the user.
 
@@ -75,6 +81,17 @@ This document serves as the primary instruction set for AI agents and developers
 - **`src-tauri/`**: Tauri backend (Rust).
   - Contains `tauri.conf.json` for configuration.
   - Contains `Cargo.toml` for Rust dependencies.
+- **`src/components/ui/`**: Shared Material 3 primitives (`Button`, `Card`, `Dialog`, fields, navigation controls, and status surfaces).
+- **`src/hooks/`**: Stateful workflows. Async transcription/translation/chat work must ignore stale results after reset or unmount.
+- **`src/context/`**: Global locale and system/light/dark theme state.
+- **`src/i18n/`**: Typed English/Italian catalogs. Language selection is exposed in Settings, not as persistent shell clutter.
+
+### Provider Settings
+
+- Mistral and DeepL edits use one atomic **Save & validate** transaction.
+- Validate every non-empty edited credential before changing local storage or committed React state.
+- If any configured provider fails validation, persist none of the edited API settings.
+- API credentials remain device-local; never log or render their full value.
 
 ## 5. Error Handling
 
@@ -117,7 +134,7 @@ The build uses two custom scripts (`build.ts` and `dev.ts`) that call the Tailwi
 1.  **Read First:** Always read `package.json` and `README.md` to understand current context.
 2.  **Branch First:** Create a dedicated branch from up-to-date `main` before any source change.
 3.  **Conventional Commits:** Every commit must follow Conventional Commits format.
-4.  **Build Before PR:** `bun test && bun run build` must pass before opening a Pull Request.
+4.  **Build Before PR:** `bun test && bun run lint && bunx --bun tsc --noEmit && bun run build` must pass before opening a Pull Request.
 5.  **PR Before Merge:** No code reaches `main` without an open PR and a green `ci-tests.yml` run.
 6.  **Verify:** After making changes, run `bun run build` to ensure no compilation errors.
 7.  **Clean Up:** Remove unused files or imports introduced during refactoring.
