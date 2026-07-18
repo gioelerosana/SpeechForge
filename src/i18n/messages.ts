@@ -30,6 +30,11 @@ const en = {
     description: "Personalize SpeechForge and connect your AI services.",
     general: "General",
     appearance: "Appearance",
+    palette: "Color palette",
+    paletteSystem: "System accent",
+    paletteBrand: "SpeechForge teal",
+    paletteSystemUnavailable:
+      "System accent color unavailable — using the SpeechForge palette.",
     language: "Language",
     services: "AI services",
     mistral: "Mistral API",
@@ -195,6 +200,11 @@ const it: Messages = {
     description: "Personalizza SpeechForge e collega i servizi di intelligenza artificiale.",
     general: "Generali",
     appearance: "Aspetto",
+    palette: "Palette colori",
+    paletteSystem: "Accento di sistema",
+    paletteBrand: "Teal SpeechForge",
+    paletteSystemUnavailable:
+      "Accento di sistema non disponibile — viene usata la palette SpeechForge.",
     language: "Lingua",
     services: "Servizi AI",
     mistral: "API Mistral",

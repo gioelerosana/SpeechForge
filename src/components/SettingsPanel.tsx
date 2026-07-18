@@ -1,7 +1,7 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
 import pkg from "../../package.json";
 import { useLocale, type Locale } from "../context/LocaleContext";
-import { useTheme, type ThemeMode } from "../context/ThemeContext";
+import { useTheme, type PaletteSource, type ThemeMode } from "../context/ThemeContext";
 import type {
   ApiKeySettings,
   SettingsDraft,
@@ -23,7 +23,8 @@ export function SettingsPanel({
   onRerunSetup,
 }: SettingsPanelProps) {
   const { copy, locale, setLocale } = useLocale();
-  const { mode, setMode } = useTheme();
+  const { mode, setMode, paletteSource, setPaletteSource, systemAccentActive } =
+    useTheme();
   const { clearValidationErrors, createDraft, saveAllSettings } = settings;
   const [draft, setDraft] = useState<SettingsDraft>(createDraft);
 
@@ -91,6 +92,23 @@ export function SettingsPanel({
                 { value: "dark", label: copy.common.dark },
               ]}
             />
+          </div>
+          <div className="space-y-3">
+            <p className="text-sm font-bold text-on-surface">{copy.settings.palette}</p>
+            <SegmentedControl<PaletteSource>
+              value={paletteSource}
+              onChange={setPaletteSource}
+              ariaLabel={copy.settings.palette}
+              items={[
+                { value: "system", label: copy.settings.paletteSystem },
+                { value: "brand", label: copy.settings.paletteBrand },
+              ]}
+            />
+            {paletteSource === "system" && !systemAccentActive ? (
+              <p className="text-xs text-on-surface-variant">
+                {copy.settings.paletteSystemUnavailable}
+              </p>
+            ) : null}
           </div>
         </section>
 

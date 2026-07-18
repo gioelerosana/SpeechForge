@@ -1,5 +1,7 @@
 use std::sync::Mutex;
 
+mod accent_color;
+
 #[cfg(desktop)]
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
@@ -402,14 +404,22 @@ async fn deepl_request(
     Ok(serde_json::json!({ "status": status, "body": text }))
 }
 
+/// Returns the desktop environment accent color as `[r, g, b]` bytes, used to
+/// seed the Material You dynamic color scheme on Linux desktops.
+#[tauri::command]
+async fn get_system_accent_color() -> Result<[u8; 3], String> {
+    accent_color::read_system_accent_color().await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .manage(RecorderState::default())
         .invoke_handler(tauri::generate_handler![
             start_native_recording,
             stop_native_recording,
-            deepl_request
+            deepl_request,
+            get_system_accent_color
         ])
         .setup(|app| {
             let log_level = if cfg!(debug_assertions) {
@@ -487,8 +497,16 @@ pub fn run() {
                     .build(),
             )?;
 
+            accent_color::spawn_accent_color_monitor(app.handle().clone());
+
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|_app_handle, event| {
+        if matches!(event, tauri::RunEvent::Exit) {
+            accent_color::shutdown_monitors();
+        }
+    });
 }
