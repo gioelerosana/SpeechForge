@@ -19,9 +19,9 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
   return (
     <nav
       aria-label={copy.nav.primary}
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-outline-variant bg-surface-container/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-6px_22px_rgba(0,79,79,0.12)] backdrop-blur-xl md:hidden"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-outline-variant bg-surface-container/95 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-6px_22px_rgba(0,79,79,0.12)] backdrop-blur-xl md:hidden"
     >
-      <div className="mx-auto grid max-w-md grid-cols-3 gap-1">
+      <div className="mx-auto grid max-w-md grid-cols-3">
         {items.map(({ value, label, icon: Icon }) => {
           const selected = activeTab === value;
           return (
@@ -30,15 +30,26 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
               type="button"
               onClick={() => onTabChange(value)}
               aria-current={selected ? "page" : undefined}
-              className={cn(
-                "flex min-h-14 flex-col items-center justify-center gap-1 rounded-[var(--sf-shape-lg)] px-2 text-xs font-bold transition-colors",
-                selected
-                  ? "bg-secondary-container text-on-secondary-container"
-                  : "text-on-surface-variant hover:bg-on-surface/8",
-              )}
+              className="group flex flex-col items-center gap-1 pt-3"
             >
-              <Icon className="size-5" aria-hidden="true" />
-              <span>{label}</span>
+              <span
+                className={cn(
+                  "flex h-8 w-16 items-center justify-center rounded-full transition-colors",
+                  selected
+                    ? "bg-secondary-container text-on-secondary-container"
+                    : "text-on-surface-variant group-hover:bg-on-surface/8 group-active:bg-on-surface/12",
+                )}
+              >
+                <Icon className="size-6" aria-hidden="true" />
+              </span>
+              <span
+                className={cn(
+                  "text-xs font-medium transition-colors",
+                  selected ? "text-on-surface" : "text-on-surface-variant",
+                )}
+              >
+                {label}
+              </span>
             </button>
           );
         })}
