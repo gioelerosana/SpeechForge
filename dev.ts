@@ -62,9 +62,13 @@ serve({
 
     // JS Bundle
     if (url.pathname === "/index.js") {
+      // format "iife" keeps bundled declarations out of the global scope:
+      // @tauri-apps/api's top-level `function isTauri()` would otherwise
+      // collide with Tauri's injected `window.isTauri` and crash the webview.
       const result = await build({
         entrypoints: ["./src/index.tsx"],
         target: "browser",
+        format: "iife",
         sourcemap: "inline",
       });
 

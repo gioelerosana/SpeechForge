@@ -30,10 +30,15 @@ if (tailwindExitCode !== 0) {
 }
 
 // Build React App
+// format "iife" keeps bundled declarations out of the global scope: a
+// top-level `function isTauri()` from @tauri-apps/api would otherwise collide
+// with the non-configurable `window.isTauri` injected by Tauri's init script
+// and crash the webview with a white screen.
 const result = await build({
   entrypoints: ["./src/index.tsx"],
   outdir: "./dist",
   target: "browser",
+  format: "iife",
   minify: true,
   sourcemap: "external",
 });
